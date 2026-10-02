@@ -66,6 +66,7 @@ export default function LobbyPage() {
         setCameraError(false);
         if (videoRef.current) {
           videoRef.current.srcObject = localStream;
+          videoRef.current.play().catch(() => {});
         }
       } catch (err) {
         console.warn('Camera/Mic permission not granted:', err);
@@ -73,9 +74,7 @@ export default function LobbyPage() {
       }
     };
 
-    if (isVideoOn) {
-      startMedia();
-    }
+    startMedia();
 
     return () => {
       if (localStream) {
@@ -84,7 +83,7 @@ export default function LobbyPage() {
     };
   }, []);
 
-  // Update track state when toggled
+  // Sync track state when toggled
   useEffect(() => {
     if (stream) {
       stream.getVideoTracks().forEach((track) => {
@@ -109,6 +108,72 @@ export default function LobbyPage() {
       }
     };
   }, [stream]);
+
+  const handleToggleMic = () => {
+    const nextState = !isMicOn;
+    setIsMicOn(nextState);
+    if (stream) {
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = nextState;
+      });
+    }
+  };
+
+  const handleToggleVideo = async () => {
+    const nextState = !isVideoOn;
+    setIsVideoOn(nextState);
+
+    if (stream) {
+      const liveVideoTrack = stream.getVideoTracks().find((t) => t.readyState === 'live');
+      if (liveVideoTrack) {
+        stream.getVideoTracks().forEach((track) => {
+          track.enabled = nextState;
+        });
+        if (videoRef.current && videoRef.current.srcObject !== stream) {
+          videoRef.current.srcObject = stream;
+        }
+      } else if (nextState) {
+        try {
+          const fresh = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+          const newTrack = fresh.getVideoTracks()[0];
+          if (newTrack) {
+            stream.getVideoTracks().forEach((t) => {
+              t.stop();
+              stream.removeTrack(t);
+            });
+            stream.addTrack(newTrack);
+            setCameraError(false);
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+              videoRef.current.play().catch(() => {});
+            }
+          }
+        } catch (err) {
+          console.warn('Lobby re-acquire camera error:', err);
+          setCameraError(true);
+        }
+      }
+    } else if (nextState) {
+      try {
+        const fresh = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: isMicOn,
+        });
+        setStream(fresh);
+        setCameraError(false);
+        if (videoRef.current) {
+          videoRef.current.srcObject = fresh;
+          videoRef.current.play().catch(() => {});
+        }
+      } catch (err) {
+        console.warn('Lobby start camera error:', err);
+        setCameraError(true);
+      }
+    }
+  };
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/meet/${roomCode}`;
@@ -187,12 +252,13 @@ export default function LobbyPage() {
         {/* Left Column: Camera Stage & Media Controls */}
         <LobbyVideoPreview
           videoRef={videoRef}
+          stream={stream}
           isVideoOn={isVideoOn}
           isMicOn={isMicOn}
           cameraError={cameraError}
           displayName={inputName}
-          onToggleMic={() => setIsMicOn(!isMicOn)}
-          onToggleVideo={() => setIsVideoOn(!isVideoOn)}
+          onToggleMic={handleToggleMic}
+          onToggleVideo={handleToggleVideo}
         />
 
         {/* Right Column: Meeting Info & Host Approval Box */}

@@ -55,16 +55,23 @@ export default function LandingNav({
               <span>New Meeting</span>
             </button>
 
-            <div className="nav-user-badge">
+            <div
+              className="nav-user-badge"
+              onClick={() => onNavigate('/profile')}
+              title="View & Edit Profile"
+            >
               <img
-                src={user?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || 'User'}`}
+                src={user?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || displayName || 'User'}`}
                 alt={user?.name || 'User'}
                 className="user-nav-avatar"
               />
               <span className="user-nav-name">{displayName}</span>
               <button
                 className="user-nav-logout-btn"
-                onClick={logout}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  logout();
+                }}
                 title="Sign Out"
               >
                 <LogIn size={13} style={{ transform: 'rotate(180deg)' }} />

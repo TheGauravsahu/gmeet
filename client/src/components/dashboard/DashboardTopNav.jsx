@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Video,
   Keyboard,
@@ -27,6 +27,7 @@ export default function DashboardTopNav({
   onOpenScheduleModal,
   onOpenSafetyModal,
 }) {
+  const navigate = useNavigate();
   const menuRef = useRef(null);
 
   // Close dropdown on outside click
@@ -156,7 +157,11 @@ export default function DashboardTopNav({
           <span>Pro</span>
         </div>
 
-        <div className="nav-user-badge">
+        <div
+          className="nav-user-badge"
+          onClick={() => navigate('/profile')}
+          title="View & Edit Profile"
+        >
           <img
             src={
               user?.avatar ||
@@ -168,7 +173,10 @@ export default function DashboardTopNav({
           <span className="user-nav-name">{displayName}</span>
           <button
             className="user-nav-logout-btn"
-            onClick={logout}
+            onClick={(e) => {
+              e.stopPropagation();
+              logout();
+            }}
             title="Sign Out"
           >
             <LogOut size={13} />

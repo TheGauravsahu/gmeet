@@ -28,7 +28,7 @@ export default function MeetingDock({
   handleLeaveCall,
 }) {
   return (
-    <footer className="meeting-dock-bar">
+    <footer className={`meeting-dock-bar ${activeDrawer ? 'drawer-open' : ''}`}>
       <div className="dock-controls-group">
         {/* Microphone */}
         <button

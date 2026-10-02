@@ -1,39 +1,63 @@
 import React from 'react';
+import { UserCheck, Shield, Check, X } from 'lucide-react';
 
 export default function HostKnockBanner({
   pendingGuests,
   handleAdmitGuest,
+  handleDenyGuest,
   handleAdmitAll,
 }) {
   if (!pendingGuests || pendingGuests.length === 0) return null;
+
+  const currentGuest = pendingGuests[0];
 
   return (
     <div className="host-knock-alert-banner">
       <div className="knock-user-info">
         <div className="knock-avatar-dot">
-          {(pendingGuests[0].displayName || 'G').charAt(0).toUpperCase()}
+          {(currentGuest.displayName || 'G').charAt(0).toUpperCase()}
         </div>
-        <div>
-          <span className="knock-title-text">
-            <strong>{pendingGuests[0].displayName}</strong> wants to join this call
-          </span>
+        <div className="knock-text-col">
+          <div className="knock-title-text">
+            <strong>{currentGuest.displayName}</strong>
+            <span className="knock-action-desc">wants to join this call</span>
+          </div>
           {pendingGuests.length > 1 && (
-            <span className="knock-extra-count">
-              (+{pendingGuests.length - 1} more waiting)
-            </span>
+            <div className="knock-extra-count">
+              +{pendingGuests.length - 1} more person waiting
+            </div>
           )}
         </div>
       </div>
+
       <div className="knock-actions">
+        {handleDenyGuest && (
+          <button
+            className="btn-deny-knock"
+            onClick={() => handleDenyGuest(currentGuest.socketId)}
+            title="Deny entry"
+          >
+            <X size={14} />
+            <span>Deny</span>
+          </button>
+        )}
+
         <button
           className="btn-admit-knock"
-          onClick={() => handleAdmitGuest(pendingGuests[0].socketId)}
+          onClick={() => handleAdmitGuest(currentGuest.socketId)}
+          title="Admit to call"
         >
-          Admit
+          <Check size={14} />
+          <span>Admit</span>
         </button>
+
         {pendingGuests.length > 1 && (
-          <button className="btn-admit-all" onClick={handleAdmitAll}>
-            Admit all
+          <button
+            className="btn-admit-all"
+            onClick={handleAdmitAll}
+            title="Admit all waiting guests"
+          >
+            Admit all ({pendingGuests.length})
           </button>
         )}
       </div>

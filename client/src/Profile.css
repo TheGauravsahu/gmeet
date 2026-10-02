@@ -1,0 +1,460 @@
+/* ==========================================================================
+   AURA.MEET - PROFILE & ACCOUNT PAGE STYLING
+   Cosmic Dark Theme (#07070a), Glowing Accents, Glassmorphic Panels
+   ========================================================================== */
+
+.profile-page-wrapper {
+  min-height: 100vh;
+  background-color: #07070a;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   1. TOPBAR
+   -------------------------------------------------------------------------- */
+.profile-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 36px;
+  background: rgba(10, 11, 20, 0.75);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.profile-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.profile-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   2. MAIN CONTENT CONTAINER
+   -------------------------------------------------------------------------- */
+.profile-container {
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 36px 24px 80px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  position: relative;
+  z-index: 10;
+}
+
+/* --------------------------------------------------------------------------
+   3. HERO IDENTITY BANNER CARD
+   -------------------------------------------------------------------------- */
+.profile-hero-card {
+  position: relative;
+  background: linear-gradient(135deg, rgba(22, 21, 38, 0.85) 0%, rgba(13, 14, 26, 0.9) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 24px;
+  padding: 36px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(124, 58, 237, 0.15);
+  overflow: hidden;
+}
+
+.profile-hero-card::before {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.profile-identity-info {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.profile-avatar-wrapper {
+  position: relative;
+}
+
+.profile-avatar-img {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  border: 3px solid rgba(192, 132, 252, 0.6);
+  box-shadow: 0 0 25px rgba(124, 58, 237, 0.5);
+  display: block;
+}
+
+.avatar-edit-overlay-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #7c3aed;
+  border: 2px solid #07070a;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(124, 58, 237, 0.6);
+}
+
+.avatar-edit-overlay-btn:hover {
+  background: #9333ea;
+  transform: scale(1.1);
+}
+
+.profile-user-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-display-name {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.profile-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25));
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  color: #c084fc;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.profile-email-text {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.profile-meta-chips {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.meta-chip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  color: #cbd5e1;
+}
+
+.profile-hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   4. STATS GRID
+   -------------------------------------------------------------------------- */
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.profile-stat-box {
+  background: rgba(18, 19, 32, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  backdrop-filter: blur(12px);
+  transition: all 0.25s ease;
+}
+
+.profile-stat-box:hover {
+  border-color: rgba(139, 92, 246, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.stat-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon-wrapper.purple {
+  background: rgba(139, 92, 246, 0.15);
+  color: #c084fc;
+}
+
+.stat-icon-wrapper.green {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.stat-icon-wrapper.amber {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.stat-icon-wrapper.blue {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.stat-val-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.stat-label-text {
+  font-size: 0.76rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   5. TWO COLUMN SETTINGS SECTION
+   -------------------------------------------------------------------------- */
+.profile-grid-sections {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 24px;
+}
+
+.profile-card-glass {
+  background: rgba(16, 17, 28, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 28px 24px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.card-title-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.card-heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+/* Form Styles inside Profile */
+.profile-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.profile-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-field-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.profile-field-subtext {
+  font-size: 0.74rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.avatar-presets-track {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 6px 0;
+}
+
+.avatar-preset-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-preset-btn:hover {
+  transform: scale(1.1);
+  border-color: rgba(168, 85, 247, 0.6);
+}
+
+.avatar-preset-btn.active {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 14px rgba(139, 92, 246, 0.6);
+}
+
+.avatar-preset-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Gemini Key Input Row */
+.key-input-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.key-input-row .auth-input {
+  padding-right: 80px;
+}
+
+.key-actions-right {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-key-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s ease;
+}
+
+.icon-key-btn:hover {
+  color: #c084fc;
+}
+
+/* Preferences Toggle Items */
+.preference-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+.pref-text-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.pref-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.pref-sub {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+/* --------------------------------------------------------------------------
+   6. RESPONSIVENESS
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .profile-hero-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .profile-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .profile-grid-sections {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .profile-identity-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-topbar {
+    padding: 14px 18px;
+  }
+}

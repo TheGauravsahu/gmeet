@@ -6,11 +6,15 @@ import AuthPage from './AuthPage';
 import LobbyPage from './pages/LobbyPage';
 import MeetingRoomPage from './pages/MeetingRoomPage';
 import MeetingsDashboardPage from './pages/MeetingsDashboardPage';
+import ProfilePage from './pages/ProfilePage';
+import MeetingEndedPage from './pages/MeetingEndedPage';
 
 import './App.css';
 import './Auth.css';
 import './Meeting.css';
 import './Dashboard.css';
+import './Profile.css';
+import './MeetingEnded.css';
 
 // Wrapper for LandingPage so onNavigate works with React Router
 function LandingWrapper() {
@@ -37,6 +41,9 @@ export default function App() {
           <Route path="/meetings" element={<MeetingsDashboardPage />} />
           <Route path="/dashboard" element={<MeetingsDashboardPage />} />
 
+          {/* User Profile Page */}
+          <Route path="/profile" element={<ProfilePage />} />
+
           {/* Authentication Pages */}
           <Route path="/signin" element={<AuthWrapper mode="signin" />} />
           <Route path="/login" element={<AuthWrapper mode="signin" />} />
@@ -49,6 +56,10 @@ export default function App() {
           {/* Live Video Meeting Room */}
           <Route path="/meet/:roomCode" element={<MeetingRoomPage />} />
           <Route path="/meeting/:roomCode" element={<MeetingRoomPage />} />
+
+          {/* Meeting Ended / Left Meeting Screen */}
+          <Route path="/ended/:roomCode" element={<MeetingEndedPage />} />
+          <Route path="/ended" element={<MeetingEndedPage />} />
 
           {/* Catch-all fallback */}
           <Route path="*" element={<Navigate to="/home" replace />} />

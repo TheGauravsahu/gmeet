@@ -66,6 +66,13 @@ export const AuthProvider = ({ children }) => {
     setGuestNameState(name);
   };
 
+  const updateUser = (updatedData) => {
+    setUser((prev) => (prev ? { ...prev, ...updatedData } : updatedData));
+    if (updatedData.name) {
+      setGuestName(updatedData.name);
+    }
+  };
+
   const displayName = user ? user.name : guestName || 'Guest';
 
   return (
@@ -78,6 +85,7 @@ export const AuthProvider = ({ children }) => {
         guestName,
         displayName,
         setGuestName,
+        updateUser,
         login,
         register,
         logout,

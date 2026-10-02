@@ -367,6 +367,17 @@
   padding: 16px 20px 84px 20px; /* leaves room for floating dock */
   display: flex;
   flex-direction: column;
+  transition: margin-right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 960px) {
+  .meeting-stage-viewport.drawer-open {
+    margin-right: 400px;
+  }
+  .meeting-dock-bar.drawer-open {
+    left: calc(50% - 200px);
+    transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
 }
 
 .video-tiles-grid {
@@ -697,20 +708,22 @@
 /* --------------------------------------------------------------------------
    6. SIDE DRAWERS (SLIDE-IN PANELS)
    -------------------------------------------------------------------------- */
+.meeting-side-drawer,
 .meeting-slide-drawer {
   position: fixed;
   top: 64px;
   right: 0;
   bottom: 0;
-  width: 380px;
-  background: rgba(14, 15, 25, 0.94);
-  backdrop-filter: blur(20px);
+  width: 400px;
+  max-width: 100vw;
+  background: rgba(14, 15, 25, 0.96);
+  backdrop-filter: blur(24px);
   border-left: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: -10px 0 35px rgba(0, 0, 0, 0.7);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.75);
   display: flex;
   flex-direction: column;
-  z-index: 45;
-  animation: slideDrawer 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  z-index: 55;
+  animation: slideDrawer 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes slideDrawer {
@@ -725,10 +738,30 @@
   justify-content: space-between;
   padding: 0 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.drawer-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.drawer-close-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
 }
 
 .drawer-title {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #ffffff;
   margin: 0;
@@ -740,6 +773,7 @@
   flex-direction: column;
   overflow: hidden;
   padding: 16px 20px;
+  min-height: 0;
 }
 
 .drawer-empty-state {
@@ -756,16 +790,22 @@
 
 /* Chat Drawer */
 .chat-drawer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 0;
+  min-height: 0;
 }
 
 .chat-messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 18px 20px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
+  min-height: 0;
 }
 
 .chat-message-bubble {
@@ -810,12 +850,24 @@
   word-break: break-word;
 }
 
+.chat-composer-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  background: rgba(10, 10, 18, 0.96);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
 .chat-input-form {
   display: flex;
-  gap: 10px;
-  padding: 14px 20px;
-  background: rgba(10, 10, 18, 0.9);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  border-top: none;
+  width: 100%;
 }
 
 .chat-text-input {
@@ -853,6 +905,43 @@
 }
 
 /* Participants Drawer */
+.participants-drawer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+
+.roster-count-text {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #c084fc;
+}
+
+.btn-mute-all-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-mute-all-toolbar:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ffffff;
+}
+
 .participants-list-view {
   display: flex;
   flex-direction: column;
@@ -1239,6 +1328,7 @@
 }
 
 /* Aura AI Chat Header Banner */
+.aura-copilot-banner,
 .aura-chat-header-card {
   margin: 12px 16px 8px 16px;
   padding: 12px 14px;
@@ -1248,8 +1338,10 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex-shrink: 0;
 }
 
+.aura-banner-top,
 .aura-chat-header-top {
   display: flex;
   align-items: center;
@@ -1620,21 +1712,23 @@
 /* Host Admission Floating Alert in Meeting Room */
 .host-knock-alert-banner {
   position: absolute;
-  top: 76px;
+  top: 80px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(18, 19, 32, 0.95);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(139, 92, 246, 0.45);
-  border-radius: 14px;
-  padding: 12px 18px;
+  background: rgba(18, 19, 32, 0.96);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  border-radius: 9999px;
+  padding: 10px 18px 10px 12px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.7), 0 0 25px rgba(124, 58, 237, 0.25);
-  z-index: 60;
-  animation: slideDownAlert 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(124, 58, 237, 0.35);
+  z-index: 100;
+  animation: slideDownAlert 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   max-width: 90%;
+  min-width: 380px;
 }
 
 @keyframes slideDownAlert {
@@ -1645,12 +1739,12 @@
 .knock-user-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .knock-avatar-dot {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: linear-gradient(135deg, #7c3aed, #4f46e5);
   color: #fff;
@@ -1658,20 +1752,36 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.6);
+  flex-shrink: 0;
 }
 
-.knock-name-text {
-  font-size: 0.86rem;
-  font-weight: 600;
-  color: #ffffff;
+.knock-text-col {
+  display: flex;
+  flex-direction: column;
 }
 
-.knock-sub-text {
-  font-size: 0.74rem;
+.knock-title-text {
+  font-size: 0.88rem;
+  color: #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.knock-action-desc {
   color: #94a3b8;
+  font-weight: 400;
 }
 
+.knock-extra-count {
+  font-size: 0.72rem;
+  color: #c084fc;
+  font-weight: 600;
+}
+
+.knock-actions,
 .knock-actions-group {
   display: flex;
   align-items: center;
@@ -1679,33 +1789,65 @@
 }
 
 .btn-deny-knock {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
   padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 0.78rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .btn-deny-knock:hover {
-  background: rgba(239, 68, 68, 0.28);
-  color: #fff;
+  background: rgba(239, 68, 68, 0.35);
+  color: #ffffff;
+  border-color: #ef4444;
 }
 
 .btn-admit-knock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: linear-gradient(135deg, #10b981, #059669);
   border: none;
   color: #ffffff;
   padding: 6px 16px;
-  border-radius: 8px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-admit-knock:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  transform: translateY(-1px);
+}
+
+.btn-admit-all {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(139, 92, 246, 0.22);
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  color: #c084fc;
+  padding: 6px 14px;
+  border-radius: 9999px;
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+.btn-admit-all:hover {
+  background: rgba(139, 92, 246, 0.45);
+  color: #ffffff;
 }
 
 .btn-admit-knock:hover {

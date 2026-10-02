@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { api } from '../services/api';
 import { connectSocket } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
+import '../Meeting.css';
 
 // Modular Meeting Components
 import MeetingTopBar from '../components/meeting/MeetingTopBar';
@@ -674,13 +675,21 @@ export default function MeetingRoomPage() {
   // Camera & Microphone Controls (Seamless toggle & dynamic acquisition)
   // --------------------------------------------------------------------------
   const toggleCamera = async () => {
-    const hasVideo = localStream && localStream.getVideoTracks().length > 0;
-    if (hasVideo) {
+    const hasLiveVideo =
+      localStream &&
+      localStream.getVideoTracks().length > 0 &&
+      localStream.getVideoTracks().some((t) => t.readyState === 'live');
+
+    if (hasLiveVideo) {
       const nextState = !isVideoOn;
       setIsVideoOn(nextState);
       localStream.getVideoTracks().forEach((track) => {
         track.enabled = nextState;
       });
+      if (localVideoRef.current && localVideoRef.current.srcObject !== localStream) {
+        localVideoRef.current.srcObject = localStream;
+        localVideoRef.current.play().catch(() => {});
+      }
       if (socketRef.current?.connected) {
         socketRef.current.emit('toggle-media-state', {
           isAudioMuted: !isMicOn,
@@ -692,34 +701,47 @@ export default function MeetingRoomPage() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
-          audio: isMicOn,
+          audio: false,
         });
-        localStreamRef.current = stream;
-        setLocalStream(stream);
-        setIsVideoOn(true);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-        peerConnectionsRef.current.forEach((pc) => {
-          stream.getVideoTracks().forEach((track) => {
+        const newTrack = stream.getVideoTracks()[0];
+        if (newTrack) {
+          if (localStream) {
+            localStream.getVideoTracks().forEach((t) => {
+              t.stop();
+              localStream.removeTrack(t);
+            });
+            localStream.addTrack(newTrack);
+          } else {
+            setLocalStream(stream);
+            localStreamRef.current = stream;
+          }
+
+          setIsVideoOn(true);
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStreamRef.current;
+            localVideoRef.current.play().catch(() => {});
+          }
+
+          peerConnectionsRef.current.forEach((pc) => {
             const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
             if (sender) {
-              sender.replaceTrack(track).catch(console.warn);
+              sender.replaceTrack(newTrack).catch(console.warn);
             } else {
               try {
-                pc.addTrack(track, stream);
+                pc.addTrack(newTrack, localStreamRef.current);
               } catch (e) {
                 console.warn(e);
               }
             }
           });
-        });
-        if (socketRef.current?.connected) {
-          socketRef.current.emit('toggle-media-state', {
-            isAudioMuted: !isMicOn,
-            isVideoMuted: false,
-            isScreenSharing,
-          });
+
+          if (socketRef.current?.connected) {
+            socketRef.current.emit('toggle-media-state', {
+              isAudioMuted: !isMicOn,
+              isVideoMuted: false,
+              isScreenSharing,
+            });
+          }
         }
       } catch (err) {
         console.warn('Could not turn on camera dynamically:', err);
@@ -1049,7 +1071,16 @@ export default function MeetingRoomPage() {
     }
     peerConnectionsRef.current.forEach((pc) => pc.close());
     peerConnectionsRef.current.clear();
-    navigate('/');
+
+    navigate(`/ended/${roomCode}`, {
+      state: {
+        roomCode,
+        roomTitle: roomInfo?.title || `Meeting #${roomCode}`,
+        callDuration,
+        participantName: myName,
+        isHost,
+      },
+    });
   };
 
   const totalParticipants = participants.length + 1; // You + real peers
@@ -1073,11 +1104,13 @@ export default function MeetingRoomPage() {
       <HostKnockBanner
         pendingGuests={pendingGuests}
         handleAdmitGuest={handleAdmitGuest}
+        handleDenyGuest={handleDenyGuest}
         handleAdmitAll={handleAdmitAll}
       />
 
       {/* 2. MAIN VIDEO GRID STAGE */}
       <VideoGridStage
+        activeDrawer={activeDrawer}
         isScreenSharing={isScreenSharing}
         screenVideoRef={screenVideoRef}
         localVideoRef={localVideoRef}

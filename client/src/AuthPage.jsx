@@ -94,9 +94,6 @@ export default function AuthPage({ initialMode = 'signin', onNavigate }) {
           errorMessage={errorMessage}
           onSubmit={handleSubmit}
         />
-
-        {/* 3. SECURITY REASSURANCE STRIP */}
-        <AuthSecurityStrip />
       </div>
 
       {/* Floating Success Toast */}

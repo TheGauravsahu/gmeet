@@ -3,6 +3,7 @@ import { Monitor, Mic, MicOff, Hand } from 'lucide-react';
 import PeerVideoTile from './PeerVideoTile';
 
 export default function VideoGridStage({
+  activeDrawer,
   isScreenSharing,
   screenVideoRef,
   localVideoRef,
@@ -19,7 +20,7 @@ export default function VideoGridStage({
   onControlMedia,
 }) {
   return (
-    <main className="meeting-stage-viewport">
+    <main className={`meeting-stage-viewport ${activeDrawer ? 'drawer-open' : ''}`}>
       <div
         className={`video-tiles-grid ${
           isScreenSharing ? 'has-screen-share' : `tiles-count-${totalParticipants}`
@@ -47,15 +48,25 @@ export default function VideoGridStage({
             !isVideoOn ? 'video-off-card' : ''
           }`}
         >
-          {isVideoOn && localStream ? (
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="tile-video-feed mirror-mode"
-            />
-          ) : (
+          {/* Always keep video element in DOM so hardware track binding is preserved */}
+          <video
+            ref={(el) => {
+              if (localVideoRef) {
+                localVideoRef.current = el;
+              }
+              if (el && localStream && el.srcObject !== localStream) {
+                el.srcObject = localStream;
+                el.play().catch(() => {});
+              }
+            }}
+            autoPlay
+            playsInline
+            muted
+            className="tile-video-feed mirror-mode"
+            style={{ display: isVideoOn && localStream ? 'block' : 'none' }}
+          />
+
+          {(!isVideoOn || !localStream) && (
             <div className="tile-avatar-view">
               <div className="tile-initial-avatar">
                 {myName.charAt(0).toUpperCase()}
@@ -90,7 +101,7 @@ export default function VideoGridStage({
           </div>
         </div>
 
-        {/* REAL Remote Participants Tiles (No mock people!) */}
+        {/* REAL Remote Participants Tiles */}
         {participants.map((peer) => (
           <PeerVideoTile
             key={peer.socketId}

@@ -1,0 +1,271 @@
+/* ==========================================================================
+   AURA.MEET - MEETING ENDED / LEFT MEETING PAGE STYLING
+   Cosmic Dark Theme (#07070a), Glowing Accents, Glassmorphic Feedback Card
+   ========================================================================== */
+
+.ended-page-wrapper {
+  min-height: 100vh;
+  background-color: #07070a;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   1. TOPBAR
+   -------------------------------------------------------------------------- */
+.ended-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 36px;
+  background: rgba(10, 11, 20, 0.75);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 20;
+}
+
+/* --------------------------------------------------------------------------
+   2. MAIN WORKSPACE
+   -------------------------------------------------------------------------- */
+.ended-main-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px 80px 20px;
+  position: relative;
+  z-index: 10;
+}
+
+.ended-glass-card {
+  max-width: 580px;
+  width: 100%;
+  background: linear-gradient(135deg, rgba(20, 21, 36, 0.88) 0%, rgba(12, 13, 24, 0.95) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 28px;
+  padding: 44px 38px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75), 0 0 35px rgba(124, 58, 237, 0.2);
+  backdrop-filter: blur(24px);
+  position: relative;
+  animation: modalFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.ended-icon-ring {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(79, 70, 229, 0.25));
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c084fc;
+  box-shadow: 0 0 30px rgba(124, 58, 237, 0.4);
+  margin-bottom: 20px;
+}
+
+.ended-headline {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.025em;
+  margin: 0 0 8px 0;
+}
+
+.ended-room-sub {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  margin: 0 0 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ended-code-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #c084fc;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* Call summary pills */
+.ended-meta-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+.ended-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+}
+
+/* Actions Group */
+.ended-actions-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.ended-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  font-family: inherit;
+  border: none;
+  outline: none;
+}
+
+.ended-btn-primary {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ended-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5);
+  background: linear-gradient(135deg, #9061f9 0%, #6d70f7 100%);
+}
+
+.ended-btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  backdrop-filter: blur(10px);
+}
+
+.ended-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+.ended-btn-ghost {
+  background: transparent;
+  border: 1px dashed rgba(139, 92, 246, 0.4);
+  color: #c084fc;
+}
+
+.ended-btn-ghost:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.7);
+  transform: translateY(-2px);
+}
+
+
+/* Rating / Feedback Section (Google Meet classic) */
+.ended-feedback-box {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.feedback-question-text {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.stars-rating-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #475569;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.star-btn.active,
+.star-btn:hover {
+  color: #fbbf24;
+  transform: scale(1.15);
+}
+
+.feedback-submitted-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #10b981;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* Safety note at footer of card */
+.ended-safety-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+/* Responsiveness */
+@media (max-width: 640px) {
+  .ended-glass-card {
+    padding: 32px 20px;
+  }
+
+  .ended-actions-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .ended-actions-group button {
+    width: 100%;
+    justify-content: center;
+  }
+}

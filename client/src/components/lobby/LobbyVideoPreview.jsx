@@ -3,6 +3,7 @@ import { Mic, MicOff, Video, VideoOff } from 'lucide-react';
 
 export default function LobbyVideoPreview({
   videoRef,
+  stream,
   isVideoOn,
   isMicOn,
   cameraError,
@@ -13,15 +14,24 @@ export default function LobbyVideoPreview({
   return (
     <div className="lobby-camera-panel">
       <div className="lobby-video-wrapper">
-        {isVideoOn && !cameraError ? (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="lobby-video-feed"
-          />
-        ) : (
+        <video
+          ref={(el) => {
+            if (videoRef) {
+              videoRef.current = el;
+            }
+            if (el && stream && el.srcObject !== stream) {
+              el.srcObject = stream;
+              el.play().catch(() => {});
+            }
+          }}
+          autoPlay
+          playsInline
+          muted
+          className="lobby-video-feed"
+          style={{ display: isVideoOn && !cameraError && stream ? 'block' : 'none' }}
+        />
+
+        {(!isVideoOn || cameraError || !stream) && (
           <div className="lobby-video-placeholder">
             <div className="avatar-pulse-circle">
               <span className="avatar-initials">
