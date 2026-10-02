@@ -57,18 +57,6 @@ export default function AuthPage({ initialMode = 'signin', onNavigate }) {
       <div className="auth-ambient-glow" />
       <div className="auth-bottom-glow" />
 
-      {/* Floating Stardust Particles */}
-      {[...Array(10)].map((_, i) => (
-        <div
-          key={i}
-          className="floating-stardust"
-          style={{
-            left: `${(i * 9.5 + 4) % 95}%`,
-            animationDelay: `${(i * 1.5) % 8}s`,
-            animationDuration: `${11 + (i % 4) * 3}s`
-          }}
-        />
-      ))}
 
       {/* 1. TOP NAVBAR */}
       <AuthHeader onNavigateHome={() => onNavigate('/')} />

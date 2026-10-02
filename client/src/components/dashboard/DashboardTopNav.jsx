@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Settings,
   Sparkles,
+  Shield,
   LogOut,
 } from 'lucide-react';
 
@@ -155,6 +156,21 @@ export default function DashboardTopNav({
         >
           <Sparkles size={13} />
           <span>Pro</span>
+        </div>
+
+        <div
+          className="upgrade-pill-tag"
+          style={{
+            background: 'rgba(236, 72, 153, 0.15)',
+            border: '1px solid rgba(236, 72, 153, 0.4)',
+            color: '#f472b6',
+            cursor: 'pointer',
+          }}
+          onClick={() => navigate('/admin')}
+          title="Open Admin Analytics Dashboard"
+        >
+          <Shield size={13} />
+          <span>Admin</span>
         </div>
 
         <div

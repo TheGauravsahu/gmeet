@@ -1,15 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Video, Crown, Copy, Check } from 'lucide-react';
 
-export default function MeetingTopBar({
+function MeetingTopBarComponent({
   roomInfo,
   roomCode,
   isHost,
   copiedLink,
   handleCopyLink,
-  callDuration,
-  formatTimer,
+  callDuration: externalDuration,
+  formatTimer: externalFormat,
 }) {
+  const [internalDuration, setInternalDuration] = useState(0);
+
+  useEffect(() => {
+    if (externalDuration !== undefined) return;
+    const timer = setInterval(() => {
+      setInternalDuration((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [externalDuration]);
+
+  const defaultFormat = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const timerText = externalFormat
+    ? externalFormat(externalDuration !== undefined ? externalDuration : internalDuration)
+    : defaultFormat(externalDuration !== undefined ? externalDuration : internalDuration);
+
   return (
     <header className="meeting-topbar">
       <div className="meeting-topbar-left">
@@ -53,7 +73,7 @@ export default function MeetingTopBar({
       <div className="meeting-topbar-center">
         <div className="duration-pill-badge">
           <span className="rec-indicator-dot" />
-          <span className="timer-text">{formatTimer(callDuration)}</span>
+          <span className="timer-text">{timerText}</span>
         </div>
       </div>
 
@@ -61,3 +81,5 @@ export default function MeetingTopBar({
     </header>
   );
 }
+
+export default memo(MeetingTopBarComponent);

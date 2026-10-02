@@ -223,6 +223,7 @@ export const setupMeetingSocket = (io) => {
         peerId: user.peerId || '',
         isAudioMuted: !!user.isAudioMuted,
         isVideoMuted: !!user.isVideoMuted,
+        isScreenSharing: !!user.isScreenSharing,
         isHost,
       });
 
@@ -238,6 +239,7 @@ export const setupMeetingSocket = (io) => {
             avatar: meta?.avatar,
             isAudioMuted: meta?.isAudioMuted,
             isVideoMuted: meta?.isVideoMuted,
+            isScreenSharing: !!meta?.isScreenSharing,
             isHost: !!meta?.isHost,
           };
         });
@@ -257,6 +259,7 @@ export const setupMeetingSocket = (io) => {
         avatar: user.avatar || '',
         isAudioMuted: !!user.isAudioMuted,
         isVideoMuted: !!user.isVideoMuted,
+        isScreenSharing: !!user.isScreenSharing,
         isHost,
       });
     };

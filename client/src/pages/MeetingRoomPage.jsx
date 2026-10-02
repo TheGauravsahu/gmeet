@@ -20,15 +20,13 @@ import {
   FloatingToast,
 } from '../components/meeting/MeetingModals';
 
-// Google STUN servers for reliable peer-to-peer WebRTC connections
+// Google STUN servers for reliable low-latency peer-to-peer WebRTC connections
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 export default function MeetingRoomPage() {
@@ -58,8 +56,7 @@ export default function MeetingRoomPage() {
   const [localStream, setLocalStream] = useState(null);
   const [screenStream, setScreenStream] = useState(null);
 
-  // Call duration counter
-  const [callDuration, setCallDuration] = useState(0);
+  const [remoteScreenStreams, setRemoteScreenStreams] = useState({});
 
   // Floating notification toast (e.g., host muted you)
   const [toastMessage, setToastMessage] = useState(null);
@@ -106,14 +103,29 @@ export default function MeetingRoomPage() {
   const chatInputRef = useRef(null);
   const socketRef = useRef(null);
   const localStreamRef = useRef(null);
+  const screenStreamRef = useRef(null);
   const peerConnectionsRef = useRef(new Map()); // socketId -> RTCPeerConnection
   const remoteStreamsRef = useRef(new Map()); // socketId -> MediaStream
+  const remoteScreenStreamsRef = useRef(new Map()); // socketId -> MediaStream
+  const screenSendersRef = useRef(new Map()); // socketId -> RTCRtpSender
   const pendingCandidatesRef = useRef(new Map()); // socketId -> RTCIceCandidateInit[]
 
   // Keep localStreamRef synced
   useEffect(() => {
     localStreamRef.current = localStream;
   }, [localStream]);
+
+  // Keep screenStreamRef synced
+  useEffect(() => {
+    screenStreamRef.current = screenStream;
+  }, [screenStream]);
+
+  const isScreenSharingRef = useRef(isScreenSharing);
+  useEffect(() => {
+    isScreenSharingRef.current = isScreenSharing;
+  }, [isScreenSharing]);
+
+  const remoteScreenTrackIdsRef = useRef(new Map()); // socketId -> screenTrackId
 
   const activeDrawerRef = useRef(activeDrawer);
   activeDrawerRef.current = activeDrawer;
@@ -134,20 +146,6 @@ export default function MeetingRoomPage() {
   isHostRef.current = isHost;
 
   const [mediaReady, setMediaReady] = useState(false);
-
-  // 1. Meeting Duration Timer
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCallDuration((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const formatTimer = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // 2. Load Room info & existing chat messages from REST API
   useEffect(() => {
@@ -180,7 +178,10 @@ export default function MeetingRoomPage() {
   const createPeerConnection = useCallback(
     (targetSocketId, isInitiator = false) => {
       if (peerConnectionsRef.current.has(targetSocketId)) {
-        peerConnectionsRef.current.get(targetSocketId).close();
+        const existingPc = peerConnectionsRef.current.get(targetSocketId);
+        if (existingPc.signalingState !== 'closed') {
+          return existingPc;
+        }
       }
 
       console.log(`[WebRTC] Creating RTCPeerConnection for ${targetSocketId} (initiator: ${isInitiator})`);
@@ -202,10 +203,79 @@ export default function MeetingRoomPage() {
         });
       }
 
+      // If local user is already sharing screen, also add the screen track to this peer
+      if (screenStreamRef.current) {
+        const screenTrack = screenStreamRef.current.getVideoTracks()[0];
+        if (screenTrack && screenTrack.readyState === 'live') {
+          try {
+            const sender = pc.addTrack(screenTrack, screenStreamRef.current);
+            screenSendersRef.current.set(targetSocketId, sender);
+          } catch (e) {
+            console.warn('[WebRTC] Error adding existing screen track to new peer:', e);
+          }
+        }
+      }
+
       // Handle incoming remote media tracks
       pc.ontrack = (event) => {
-        console.log(`[WebRTC] ontrack from ${targetSocketId}:`, event.track?.kind);
+        console.log(`[WebRTC] ontrack from ${targetSocketId}:`, event.track?.kind, event.track?.id);
         const incomingTrack = event.track;
+        if (!incomingTrack) return;
+
+        // Check if this track is a screen share track
+        const knownScreenTrackId = remoteScreenTrackIdsRef.current.get(targetSocketId);
+        const isScreenIdMatch = knownScreenTrackId && incomingTrack.id === knownScreenTrackId;
+        const labelLower = (incomingTrack.label || '').toLowerCase();
+        const isScreenLabel =
+          labelLower.includes('screen') ||
+          labelLower.includes('window') ||
+          labelLower.includes('display') ||
+          labelLower.includes('desktop') ||
+          labelLower.includes('monitor') ||
+          labelLower.includes('tab');
+
+        const existingVideoTracks = remoteStream.getVideoTracks();
+        const isSecondVideoTrack =
+          incomingTrack.kind === 'video' &&
+          existingVideoTracks.length > 0 &&
+          !existingVideoTracks.some((t) => t.id === incomingTrack.id);
+
+        const isScreenTrack =
+          incomingTrack.kind === 'video' && (isScreenIdMatch || isScreenLabel || isSecondVideoTrack);
+
+        if (isScreenTrack) {
+          console.log(`[WebRTC] Routing video track ${incomingTrack.id} to screen share from ${targetSocketId}`);
+          let sStream = remoteScreenStreamsRef.current.get(targetSocketId);
+          if (!sStream) {
+            sStream = new MediaStream();
+            remoteScreenStreamsRef.current.set(targetSocketId, sStream);
+          }
+          if (!sStream.getTracks().some((t) => t.id === incomingTrack.id)) {
+            sStream.addTrack(incomingTrack);
+          }
+          setRemoteScreenStreams((prev) => ({
+            ...prev,
+            [targetSocketId]: new MediaStream(sStream.getTracks()),
+          }));
+
+          incomingTrack.onended = () => {
+            const cur = remoteScreenStreamsRef.current.get(targetSocketId);
+            if (cur) {
+              cur.removeTrack(incomingTrack);
+              if (cur.getTracks().length === 0) {
+                remoteScreenStreamsRef.current.delete(targetSocketId);
+              }
+            }
+            setRemoteScreenStreams((prev) => {
+              const updated = { ...prev };
+              delete updated[targetSocketId];
+              return updated;
+            });
+          };
+          return;
+        }
+
+        // Standard camera / mic track
         if (incomingTrack && !remoteStream.getTracks().some((t) => t.id === incomingTrack.id)) {
           remoteStream.addTrack(incomingTrack);
         }
@@ -218,7 +288,7 @@ export default function MeetingRoomPage() {
         }
         setRemoteStreams((prev) => ({
           ...prev,
-          [targetSocketId]: remoteStream,
+          [targetSocketId]: new MediaStream(remoteStream.getTracks()),
         }));
       };
 
@@ -245,8 +315,15 @@ export default function MeetingRoomPage() {
             } catch (_) {}
             peerConnectionsRef.current.delete(targetSocketId);
           }
+          screenSendersRef.current.delete(targetSocketId);
           remoteStreamsRef.current.delete(targetSocketId);
+          remoteScreenStreamsRef.current.delete(targetSocketId);
           setRemoteStreams((prev) => {
+            const updated = { ...prev };
+            delete updated[targetSocketId];
+            return updated;
+          });
+          setRemoteScreenStreams((prev) => {
             const updated = { ...prev };
             delete updated[targetSocketId];
             return updated;
@@ -290,7 +367,11 @@ export default function MeetingRoomPage() {
       try {
         currentStream = await navigator.mediaDevices.getUserMedia({
           video: true,
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
         });
 
         // Apply initial mute settings
@@ -466,7 +547,10 @@ export default function MeetingRoomPage() {
     // 4e. WebRTC Offer Received
     socket.on('webrtc-offer', async ({ callerSocketId, offer }) => {
       console.log('[WebRTC] Received offer from:', callerSocketId);
-      const pc = createPeerConnection(callerSocketId, false);
+      let pc = peerConnectionsRef.current.get(callerSocketId);
+      if (!pc || pc.signalingState === 'closed') {
+        pc = createPeerConnection(callerSocketId, false);
+      }
 
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -525,13 +609,62 @@ export default function MeetingRoomPage() {
     });
 
     // 4h. Peer Media State Changed
-    socket.on('user-media-state-changed', ({ socketId, isAudioMuted, isVideoMuted }) => {
-      setParticipants((prev) =>
-        prev.map((p) =>
-          p.socketId === socketId ? { ...p, isAudioMuted, isVideoMuted } : p
-        )
-      );
-    });
+    socket.on(
+      'user-media-state-changed',
+      ({ socketId, isAudioMuted, isVideoMuted, isScreenSharing: peerScreenShare, screenTrackId }) => {
+        setParticipants((prev) =>
+          prev.map((p) =>
+            p.socketId === socketId
+              ? { ...p, isAudioMuted, isVideoMuted, isScreenSharing: !!peerScreenShare }
+              : p
+          )
+        );
+
+        if (screenTrackId) {
+          remoteScreenTrackIdsRef.current.set(socketId, screenTrackId);
+        }
+
+        if (peerScreenShare) {
+          // If a screen track was received before this event and placed into remoteStream, migrate it now
+          const rStream = remoteStreamsRef.current.get(socketId);
+          if (rStream) {
+            const screenTrack = screenTrackId
+              ? rStream.getVideoTracks().find((t) => t.id === screenTrackId)
+              : rStream.getVideoTracks().length > 1
+              ? rStream.getVideoTracks()[1]
+              : null;
+
+            if (screenTrack) {
+              rStream.removeTrack(screenTrack);
+              let sStream = remoteScreenStreamsRef.current.get(socketId);
+              if (!sStream) {
+                sStream = new MediaStream();
+                remoteScreenStreamsRef.current.set(socketId, sStream);
+              }
+              if (!sStream.getTracks().some((t) => t.id === screenTrack.id)) {
+                sStream.addTrack(screenTrack);
+              }
+              setRemoteStreams((prev) => ({
+                ...prev,
+                [socketId]: new MediaStream(rStream.getTracks()),
+              }));
+              setRemoteScreenStreams((prev) => ({
+                ...prev,
+                [socketId]: new MediaStream(sStream.getTracks()),
+              }));
+            }
+          }
+        } else {
+          remoteScreenStreamsRef.current.delete(socketId);
+          remoteScreenTrackIdsRef.current.delete(socketId);
+          setRemoteScreenStreams((prev) => {
+            const updated = { ...prev };
+            delete updated[socketId];
+            return updated;
+          });
+        }
+      }
+    );
 
     // 4i. Peer Raised Hand
     socket.on('user-raised-hand', ({ socketId, isHandRaised: raised }) => {
@@ -568,8 +701,15 @@ export default function MeetingRoomPage() {
         } catch (_) {}
         peerConnectionsRef.current.delete(socketId);
       }
+      screenSendersRef.current.delete(socketId);
       remoteStreamsRef.current.delete(socketId);
+      remoteScreenStreamsRef.current.delete(socketId);
       setRemoteStreams((prev) => {
+        const updated = { ...prev };
+        delete updated[socketId];
+        return updated;
+      });
+      setRemoteScreenStreams((prev) => {
         const updated = { ...prev };
         delete updated[socketId];
         return updated;
@@ -602,7 +742,7 @@ export default function MeetingRoomPage() {
           socket.emit('toggle-media-state', {
             isAudioMuted: true,
             isVideoMuted: !isVideoOnRef.current,
-            isScreenSharing: false,
+            isScreenSharing: isScreenSharingRef.current,
           });
           setToastMessage(`${hostName || 'Host'} muted your microphone`);
         } else if (action === 'unmute') {
@@ -615,7 +755,7 @@ export default function MeetingRoomPage() {
           socket.emit('toggle-media-state', {
             isAudioMuted: false,
             isVideoMuted: !isVideoOnRef.current,
-            isScreenSharing: false,
+            isScreenSharing: isScreenSharingRef.current,
           });
           setToastMessage(`${hostName || 'Host'} unmuted your microphone`);
         }
@@ -630,7 +770,7 @@ export default function MeetingRoomPage() {
           socket.emit('toggle-media-state', {
             isAudioMuted: !isMicOnRef.current,
             isVideoMuted: true,
-            isScreenSharing: false,
+            isScreenSharing: isScreenSharingRef.current,
           });
           setToastMessage(`${hostName || 'Host'} turned off your camera`);
         } else if (action === 'enable-video') {
@@ -643,7 +783,7 @@ export default function MeetingRoomPage() {
           socket.emit('toggle-media-state', {
             isAudioMuted: !isMicOnRef.current,
             isVideoMuted: false,
-            isScreenSharing: false,
+            isScreenSharing: isScreenSharingRef.current,
           });
           setToastMessage(`${hostName || 'Host'} turned on your camera`);
         }
@@ -670,13 +810,20 @@ export default function MeetingRoomPage() {
       socket.off('user-left');
       socket.off('host-media-action');
 
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((t) => t.stop());
+        screenStreamRef.current = null;
+      }
+      screenSendersRef.current.clear();
+      remoteScreenStreamsRef.current.clear();
+
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
       remoteStreamsRef.current.clear();
     };
-  }, [roomCode, mediaReady, createPeerConnection]);
+  }, [roomCode, mediaReady, createPeerConnection, isScreenSharing]);
 
-  // Resume any paused video/audio on user interaction (resolves browser autoplay policy)
+  // Resume any paused video/audio immediately on any user interaction (resolves browser autoplay policy)
   useEffect(() => {
     const resumeMedia = () => {
       document.querySelectorAll('audio, video').forEach((el) => {
@@ -686,10 +833,12 @@ export default function MeetingRoomPage() {
       });
     };
 
-    window.addEventListener('click', resumeMedia);
-    window.addEventListener('keydown', resumeMedia);
+    window.addEventListener('click', resumeMedia, { passive: true });
+    window.addEventListener('touchstart', resumeMedia, { passive: true });
+    window.addEventListener('keydown', resumeMedia, { passive: true });
     return () => {
       window.removeEventListener('click', resumeMedia);
+      window.removeEventListener('touchstart', resumeMedia);
       window.removeEventListener('keydown', resumeMedia);
     };
   }, []);
@@ -765,29 +914,7 @@ export default function MeetingRoomPage() {
   // Camera & Microphone Controls (Seamless toggle & dynamic acquisition)
   // --------------------------------------------------------------------------
   const toggleCamera = async () => {
-    const hasLiveVideo =
-      localStream &&
-      localStream.getVideoTracks().length > 0 &&
-      localStream.getVideoTracks().some((t) => t.readyState === 'live');
-
-    if (hasLiveVideo) {
-      const nextState = !isVideoOn;
-      setIsVideoOn(nextState);
-      localStream.getVideoTracks().forEach((track) => {
-        track.enabled = nextState;
-      });
-      if (localVideoRef.current && localVideoRef.current.srcObject !== localStream) {
-        localVideoRef.current.srcObject = localStream;
-        localVideoRef.current.play().catch(() => {});
-      }
-      if (socketRef.current?.connected) {
-        socketRef.current.emit('toggle-media-state', {
-          isAudioMuted: !isMicOn,
-          isVideoMuted: !nextState,
-          isScreenSharing,
-        });
-      }
-    } else {
+    if (!localStream) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -795,128 +922,116 @@ export default function MeetingRoomPage() {
         });
         const newTrack = stream.getVideoTracks()[0];
         if (newTrack) {
-          if (localStream) {
-            localStream.getVideoTracks().forEach((t) => {
-              t.stop();
-              localStream.removeTrack(t);
-            });
-            localStream.addTrack(newTrack);
-          } else {
-            setLocalStream(stream);
-            localStreamRef.current = stream;
-          }
-
           setIsVideoOn(true);
-          if (localVideoRef.current) {
+          isVideoOnRef.current = true;
+          localStreamRef.current?.addTrack(newTrack);
+          if (localVideoRef.current && localStreamRef.current) {
             localVideoRef.current.srcObject = localStreamRef.current;
             localVideoRef.current.play().catch(() => {});
           }
-
           peerConnectionsRef.current.forEach((pc) => {
-            const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-            if (sender) {
-              sender.replaceTrack(newTrack).catch(console.warn);
-            } else {
-              try {
-                pc.addTrack(newTrack, localStreamRef.current);
-              } catch (e) {
-                console.warn(e);
-              }
+            if (localStreamRef.current) {
+              pc.addTrack(newTrack, localStreamRef.current);
             }
           });
-
           if (socketRef.current?.connected) {
             socketRef.current.emit('toggle-media-state', {
-              isAudioMuted: !isMicOn,
+              isAudioMuted: !isMicOnRef.current,
               isVideoMuted: false,
-              isScreenSharing,
+              isScreenSharing: isScreenSharingRef.current,
             });
           }
         }
       } catch (err) {
         console.warn('Could not turn on camera dynamically:', err);
       }
+      return;
     }
-  };
 
-  const toggleMic = async () => {
-    const hasAudio = localStream && localStream.getAudioTracks().length > 0;
-    if (hasAudio) {
-      const nextState = !isMicOn;
-      setIsMicOn(nextState);
-      localStream.getAudioTracks().forEach((track) => {
-        track.enabled = nextState;
-      });
-      if (socketRef.current?.connected) {
-        socketRef.current.emit('toggle-media-state', {
-          isAudioMuted: !nextState,
-          isVideoMuted: !isVideoOn,
-          isScreenSharing,
-        });
-      }
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: isVideoOn,
-          audio: true,
-        });
-        localStreamRef.current = stream;
-        setLocalStream(stream);
-        setIsMicOn(true);
-        peerConnectionsRef.current.forEach((pc) => {
-          stream.getAudioTracks().forEach((track) => {
-            const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'audio');
-            if (sender) {
-              sender.replaceTrack(track).catch(console.warn);
-            } else {
-              try {
-                pc.addTrack(track, stream);
-              } catch (e) {
-                console.warn(e);
-              }
-            }
-          });
-        });
-        if (socketRef.current?.connected) {
-          socketRef.current.emit('toggle-media-state', {
-            isAudioMuted: false,
-            isVideoMuted: !isVideoOn,
-            isScreenSharing,
-          });
-        }
-      } catch (err) {
-        console.warn('Could not turn on mic dynamically:', err);
-      }
-    }
-  };
+    const nextState = !isVideoOnRef.current;
+    setIsVideoOn(nextState);
+    isVideoOnRef.current = nextState;
+    localStream.getVideoTracks().forEach((track) => {
+      track.enabled = nextState;
+    });
 
-  // --------------------------------------------------------------------------
-  // Screen Sharing
-  // --------------------------------------------------------------------------
-  const stopScreenShare = () => {
-    if (screenStream) {
-      screenStream.getTracks().forEach((track) => track.stop());
-      setScreenStream(null);
-    }
-    setIsScreenSharing(false);
-
-    const localVideoTrack = localStreamRef.current?.getVideoTracks()[0];
-    if (localVideoTrack) {
-      peerConnectionsRef.current.forEach((pc) => {
-        const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-        if (sender) {
-          sender.replaceTrack(localVideoTrack);
-        }
-      });
+    if (localVideoRef.current && localVideoRef.current.srcObject !== localStream) {
+      localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(() => {});
     }
 
     if (socketRef.current?.connected) {
-      socketRef.current.emit('toggle-media-state', { isScreenSharing: false });
+      socketRef.current.emit('toggle-media-state', {
+        isAudioMuted: !isMicOnRef.current,
+        isVideoMuted: !nextState,
+        isScreenSharing: isScreenSharingRef.current,
+      });
+    }
+  };
+
+  const toggleMic = () => {
+    if (!localStream) return;
+    const nextState = !isMicOnRef.current;
+    setIsMicOn(nextState);
+    isMicOnRef.current = nextState;
+    localStream.getAudioTracks().forEach((track) => {
+      track.enabled = nextState;
+    });
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('toggle-media-state', {
+        isAudioMuted: !nextState,
+        isVideoMuted: !isVideoOnRef.current,
+        isScreenSharing: isScreenSharingRef.current,
+      });
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // Screen Sharing (Independent from camera - Google Meet style)
+  // --------------------------------------------------------------------------
+  const stopScreenShare = () => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+      setScreenStream(null);
+    }
+    isScreenSharingRef.current = false;
+    setIsScreenSharing(false);
+
+    // Remove screen track sender from each peer connection and renegotiate
+    peerConnectionsRef.current.forEach((pc, peerSocketId) => {
+      const sender = screenSendersRef.current.get(peerSocketId);
+      if (sender && pc.signalingState !== 'closed') {
+        try {
+          pc.removeTrack(sender);
+        } catch (_) {}
+        screenSendersRef.current.delete(peerSocketId);
+
+        pc.createOffer()
+          .then((offer) => pc.setLocalDescription(offer))
+          .then(() => {
+            if (socketRef.current?.connected) {
+              socketRef.current.emit('webrtc-offer', {
+                targetSocketId: peerSocketId,
+                offer: pc.localDescription,
+              });
+            }
+          })
+          .catch((err) => console.warn('[WebRTC] Screen stop renegotiate failed:', err));
+      }
+    });
+
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('toggle-media-state', {
+        isAudioMuted: !isMicOnRef.current,
+        isVideoMuted: !isVideoOnRef.current,
+        isScreenSharing: false,
+      });
     }
   };
 
   const toggleScreenShare = async () => {
-    if (isScreenSharing) {
+    if (isScreenSharingRef.current) {
       stopScreenShare();
     } else {
       try {
@@ -925,31 +1040,51 @@ export default function MeetingRoomPage() {
           audio: true,
         });
 
+        screenStreamRef.current = displayStream;
         setScreenStream(displayStream);
+        isScreenSharingRef.current = true;
         setIsScreenSharing(true);
-
-        if (screenVideoRef.current) {
-          screenVideoRef.current.srcObject = displayStream;
-        }
 
         const screenVideoTrack = displayStream.getVideoTracks()[0];
 
-        peerConnectionsRef.current.forEach((pc) => {
-          const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-          if (sender) {
-            sender.replaceTrack(screenVideoTrack);
+        // Add screen track to all peer connections as a separate track and renegotiate
+        peerConnectionsRef.current.forEach((pc, peerSocketId) => {
+          if (pc.signalingState !== 'closed') {
+            try {
+              const sender = pc.addTrack(screenVideoTrack, displayStream);
+              screenSendersRef.current.set(peerSocketId, sender);
+
+              pc.createOffer()
+                .then((offer) => pc.setLocalDescription(offer))
+                .then(() => {
+                  if (socketRef.current?.connected) {
+                    socketRef.current.emit('webrtc-offer', {
+                      targetSocketId: peerSocketId,
+                      offer: pc.localDescription,
+                    });
+                  }
+                })
+                .catch((err) => console.warn('[WebRTC] Screen start renegotiate failed:', err));
+            } catch (e) {
+              console.warn('[WebRTC] Error adding screen track to peer:', e);
+            }
           }
         });
 
         if (socketRef.current?.connected) {
-          socketRef.current.emit('toggle-media-state', { isScreenSharing: true });
+          socketRef.current.emit('toggle-media-state', {
+            isAudioMuted: !isMicOnRef.current,
+            isVideoMuted: !isVideoOnRef.current,
+            isScreenSharing: true,
+            screenTrackId: screenVideoTrack.id,
+          });
         }
 
         screenVideoTrack.onended = () => {
           stopScreenShare();
         };
       } catch (err) {
-        console.warn('Screen share canceled:', err);
+        console.warn('Screen share canceled or error:', err);
       }
     }
   };
@@ -1176,7 +1311,6 @@ export default function MeetingRoomPage() {
       state: {
         roomCode,
         roomTitle: roomInfo?.title || `Meeting #${roomCode}`,
-        callDuration,
         participantName: myName,
         isHost,
       },
@@ -1196,8 +1330,6 @@ export default function MeetingRoomPage() {
         isHost={isHost}
         copiedLink={copiedLink}
         handleCopyLink={handleCopyLink}
-        callDuration={callDuration}
-        formatTimer={formatTimer}
       />
 
       {/* FLOATING HOST ADMISSION ALERT (When guests are knocking) */}
@@ -1212,6 +1344,8 @@ export default function MeetingRoomPage() {
       <VideoGridStage
         activeDrawer={activeDrawer}
         isScreenSharing={isScreenSharing}
+        screenStream={screenStream}
+        remoteScreenStreams={remoteScreenStreams}
         screenVideoRef={screenVideoRef}
         localVideoRef={localVideoRef}
         localStream={localStream}

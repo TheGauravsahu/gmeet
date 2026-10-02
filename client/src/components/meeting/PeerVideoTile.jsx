@@ -1,10 +1,11 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, memo } from 'react';
 import { Mic, MicOff, Video, VideoOff, Hand } from 'lucide-react';
 
 /**
  * Remote Participant Video/Audio Tile
+ * High-performance, zero-latency audio playback & WebRTC track synchronization
  */
-export default function PeerVideoTile({
+function PeerVideoTileComponent({
   peer,
   stream,
   isHandRaised,
@@ -13,36 +14,66 @@ export default function PeerVideoTile({
 }) {
   const videoRef = useRef(null);
   const audioRef = useRef(null);
+  const [, setTrackVersion] = useState(0);
+
+  // Instant audio & video playback helper
+  const tryPlayMedia = () => {
+    if (audioRef.current && stream) {
+      if (audioRef.current.srcObject !== stream) {
+        audioRef.current.srcObject = stream;
+      }
+      audioRef.current.play().catch((err) => {
+        // Autoplay may be caught if browser requires a gesture
+        console.warn(`[WebRTC] Audio play waiting for user interaction for ${peer.displayName}:`, err.message);
+      });
+    }
+
+    if (videoRef.current && stream) {
+      if (videoRef.current.srcObject !== stream) {
+        videoRef.current.srcObject = stream;
+      }
+      videoRef.current.play().catch(() => {});
+    }
+  };
 
   const setVideoEl = (el) => {
     videoRef.current = el;
     if (el && stream && el.srcObject !== stream) {
       el.srcObject = stream;
-      el.play().catch((err) => {
-        console.warn(`[WebRTC] Video autoplay caught for ${peer.displayName}:`, err);
-      });
+      el.play().catch(() => {});
     }
   };
 
   const setAudioEl = (el) => {
     audioRef.current = el;
-    if (el && stream && el.srcObject !== stream) {
-      el.srcObject = stream;
+    if (el && stream) {
+      if (el.srcObject !== stream) {
+        el.srcObject = stream;
+      }
       el.play().catch((err) => {
-        console.warn(`[WebRTC] Audio autoplay caught for ${peer.displayName}:`, err);
+        console.warn(`[WebRTC] Audio autoplay caught for ${peer.displayName}:`, err.message);
       });
     }
   };
 
+  // Immediate playback as soon as stream or tracks change (eliminates audio arrival delay!)
   useEffect(() => {
-    if (videoRef.current && stream && videoRef.current.srcObject !== stream) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(() => {});
-    }
-    if (audioRef.current && stream && audioRef.current.srcObject !== stream) {
-      audioRef.current.srcObject = stream;
-      audioRef.current.play().catch(() => {});
-    }
+    if (!stream) return;
+
+    tryPlayMedia();
+
+    const handleTrackChange = () => {
+      tryPlayMedia();
+      setTrackVersion((v) => v + 1);
+    };
+
+    stream.addEventListener('addtrack', handleTrackChange);
+    stream.addEventListener('removetrack', handleTrackChange);
+
+    return () => {
+      stream.removeEventListener('addtrack', handleTrackChange);
+      stream.removeEventListener('removetrack', handleTrackChange);
+    };
   }, [stream]);
 
   const hasVideoTrack =
@@ -58,14 +89,20 @@ export default function PeerVideoTile({
         !showVideo ? 'video-off-card' : ''
       }`}
     >
-      {/* Dedicated audio element ensures incoming audio ALWAYS plays even if video is toggled or off */}
-      <audio ref={setAudioEl} autoPlay playsInline style={{ display: 'none' }} />
+      {/* Offscreen audio element ensures incoming audio ALWAYS plays without display:none throttling */}
+      <audio
+        ref={setAudioEl}
+        autoPlay
+        playsInline
+        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+      />
 
-      {/* Remote Video feed */}
+      {/* Remote Video feed (muted to prevent duplicate audio conflict with audio element) */}
       <video
         ref={setVideoEl}
         autoPlay
         playsInline
+        muted
         className={`tile-video-feed ${!showVideo ? 'hidden-feed' : ''}`}
         style={{ display: showVideo ? 'block' : 'none' }}
       />
@@ -156,3 +193,5 @@ export default function PeerVideoTile({
     </div>
   );
 }
+
+export default memo(PeerVideoTileComponent);
