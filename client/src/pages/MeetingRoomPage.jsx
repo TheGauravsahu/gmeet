@@ -40,7 +40,9 @@ export default function MeetingRoomPage() {
   // Settings passed from lobby
   const initialAudio = location.state?.initialAudio !== false;
   const initialVideo = location.state?.initialVideo !== false;
-  const myName = location.state?.participantName || displayName || 'You';
+  const [myName, setMyName] = useState(
+    location.state?.participantName || (user ? user.name : 'Guest')
+  );
 
   // Host & Admission state
   const [isHost, setIsHost] = useState(location.state?.isHost || false);
@@ -128,6 +130,11 @@ export default function MeetingRoomPage() {
   const userRef = useRef(user);
   userRef.current = user;
 
+  const isHostRef = useRef(isHost);
+  isHostRef.current = isHost;
+
+  const [mediaReady, setMediaReady] = useState(false);
+
   // 1. Meeting Duration Timer
   useEffect(() => {
     const timer = setInterval(() => {
@@ -180,8 +187,11 @@ export default function MeetingRoomPage() {
       const pc = new RTCPeerConnection(ICE_SERVERS);
       peerConnectionsRef.current.set(targetSocketId, pc);
 
-      const remoteStream = new MediaStream();
-      remoteStreamsRef.current.set(targetSocketId, remoteStream);
+      let remoteStream = remoteStreamsRef.current.get(targetSocketId);
+      if (!remoteStream) {
+        remoteStream = new MediaStream();
+        remoteStreamsRef.current.set(targetSocketId, remoteStream);
+      }
       setRemoteStreams((prev) => ({ ...prev, [targetSocketId]: remoteStream }));
 
       // Add local audio and video tracks
@@ -208,7 +218,7 @@ export default function MeetingRoomPage() {
         }
         setRemoteStreams((prev) => ({
           ...prev,
-          [targetSocketId]: new MediaStream(remoteStream.getTracks()),
+          [targetSocketId]: remoteStream,
         }));
       };
 
@@ -224,6 +234,30 @@ export default function MeetingRoomPage() {
 
       pc.onconnectionstatechange = () => {
         console.log(`[WebRTC] Connection state with ${targetSocketId}: ${pc.connectionState}`);
+        if (
+          pc.connectionState === 'disconnected' ||
+          pc.connectionState === 'failed' ||
+          pc.connectionState === 'closed'
+        ) {
+          if (peerConnectionsRef.current.has(targetSocketId)) {
+            try {
+              peerConnectionsRef.current.get(targetSocketId).close();
+            } catch (_) {}
+            peerConnectionsRef.current.delete(targetSocketId);
+          }
+          remoteStreamsRef.current.delete(targetSocketId);
+          setRemoteStreams((prev) => {
+            const updated = { ...prev };
+            delete updated[targetSocketId];
+            return updated;
+          });
+          setParticipants((prev) => prev.filter((p) => p.socketId !== targetSocketId));
+          setRaisedHands((prev) => {
+            const updated = { ...prev };
+            delete updated[targetSocketId];
+            return updated;
+          });
+        }
       };
 
       // If initiator, create and send SDP offer
@@ -292,6 +326,8 @@ export default function MeetingRoomPage() {
         });
       } catch (err) {
         console.warn('Webcam/Mic permission error:', err);
+      } finally {
+        setMediaReady(true);
       }
     };
 
@@ -328,6 +364,8 @@ export default function MeetingRoomPage() {
   // 4. Socket.io Real-Time Signaling, WebRTC Mesh & Host Admission
   // --------------------------------------------------------------------------
   useEffect(() => {
+    if (!mediaReady) return;
+
     const socket = connectSocket();
     socketRef.current = socket;
 
@@ -339,13 +377,18 @@ export default function MeetingRoomPage() {
         avatar: userRef.current?.avatar || '',
         isAudioMuted: !isMicOnRef.current,
         isVideoMuted: !isVideoOnRef.current,
+        isHost: isHostRef.current,
       },
     });
 
     // 4a. Host Status
-    socket.on('host-status', ({ isHost: hostStatus }) => {
-      console.log('[Socket] Host status updated:', hostStatus);
+    socket.on('host-status', ({ isHost: hostStatus, assignedName }) => {
+      console.log('[Socket] Host status updated:', hostStatus, assignedName);
       setIsHost(!!hostStatus);
+      if (assignedName && (!user || !user.name)) {
+        setMyName(assignedName);
+        myNameRef.current = assignedName;
+      }
     });
 
     // 4b. Knocking / Admission Events
@@ -353,19 +396,26 @@ export default function MeetingRoomPage() {
       setWaitingForAdmission(true);
     });
 
-    socket.on('join-approved', ({ isHost: hostStatus }) => {
-      console.log('[Socket] join-approved received, entering room now...');
+    socket.on('join-approved', ({ isHost: hostStatus, assignedName }) => {
+      console.log('[Socket] join-approved received, entering room now...', assignedName);
       setWaitingForAdmission(false);
       setIsHost(!!hostStatus);
+
+      const effectiveName = assignedName || myNameRef.current;
+      if (assignedName && (!user || !user.name)) {
+        setMyName(assignedName);
+        myNameRef.current = assignedName;
+      }
 
       // Re-emit join-room so that the approved guest enters the room and exchanges peer list
       socket.emit('join-room', {
         roomCode,
         user: {
-          displayName: myNameRef.current,
+          displayName: effectiveName,
           avatar: userRef.current?.avatar || '',
           isAudioMuted: !isMicOnRef.current,
           isVideoMuted: !isVideoOnRef.current,
+          isHost: !!hostStatus,
         },
       });
     });
@@ -510,10 +560,12 @@ export default function MeetingRoomPage() {
     });
 
     // 4l. User Left room
-    socket.on('user-left', ({ socketId }) => {
-      console.log('[WebRTC] User left:', socketId);
+    socket.on('user-left', ({ socketId, displayName }) => {
+      console.log('[WebRTC] User left:', socketId, displayName);
       if (peerConnectionsRef.current.has(socketId)) {
-        peerConnectionsRef.current.get(socketId).close();
+        try {
+          peerConnectionsRef.current.get(socketId).close();
+        } catch (_) {}
         peerConnectionsRef.current.delete(socketId);
       }
       remoteStreamsRef.current.delete(socketId);
@@ -522,7 +574,12 @@ export default function MeetingRoomPage() {
         delete updated[socketId];
         return updated;
       });
-      setParticipants((prev) => prev.filter((p) => p.socketId !== socketId));
+      setParticipants((prev) => {
+        const leaving = prev.find((p) => p.socketId === socketId);
+        const name = displayName || leaving?.displayName || 'Participant';
+        setToastMessage(`👋 ${name} left the meeting`);
+        return prev.filter((p) => p.socketId !== socketId);
+      });
       setRaisedHands((prev) => {
         const updated = { ...prev };
         delete updated[socketId];
@@ -617,7 +674,40 @@ export default function MeetingRoomPage() {
       peerConnectionsRef.current.clear();
       remoteStreamsRef.current.clear();
     };
-  }, [roomCode, createPeerConnection]);
+  }, [roomCode, mediaReady, createPeerConnection]);
+
+  // Resume any paused video/audio on user interaction (resolves browser autoplay policy)
+  useEffect(() => {
+    const resumeMedia = () => {
+      document.querySelectorAll('audio, video').forEach((el) => {
+        if (el.paused && el.srcObject) {
+          el.play().catch(() => {});
+        }
+      });
+    };
+
+    window.addEventListener('click', resumeMedia);
+    window.addEventListener('keydown', resumeMedia);
+    return () => {
+      window.removeEventListener('click', resumeMedia);
+      window.removeEventListener('keydown', resumeMedia);
+    };
+  }, []);
+
+  // Broadcast leave-room before browser tab is closed or navigated away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('leave-room');
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
+  }, []);
 
   // Scroll to bottom on new chat messages
   useEffect(() => {
@@ -1063,14 +1153,24 @@ export default function MeetingRoomPage() {
   };
 
   const handleLeaveCall = () => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('leave-room');
+    }
     if (localStream) {
       localStream.getTracks().forEach((track) => track.stop());
     }
     if (screenStream) {
       screenStream.getTracks().forEach((track) => track.stop());
     }
-    peerConnectionsRef.current.forEach((pc) => pc.close());
+    peerConnectionsRef.current.forEach((pc) => {
+      try {
+        pc.close();
+      } catch (_) {}
+    });
     peerConnectionsRef.current.clear();
+    remoteStreamsRef.current.clear();
+    setRemoteStreams({});
+    setParticipants([]);
 
     navigate(`/ended/${roomCode}`, {
       state: {

@@ -12,13 +12,36 @@ export default function PeerVideoTile({
   onControlMedia,
 }) {
   const videoRef = useRef(null);
+  const audioRef = useRef(null);
+
+  const setVideoEl = (el) => {
+    videoRef.current = el;
+    if (el && stream && el.srcObject !== stream) {
+      el.srcObject = stream;
+      el.play().catch((err) => {
+        console.warn(`[WebRTC] Video autoplay caught for ${peer.displayName}:`, err);
+      });
+    }
+  };
+
+  const setAudioEl = (el) => {
+    audioRef.current = el;
+    if (el && stream && el.srcObject !== stream) {
+      el.srcObject = stream;
+      el.play().catch((err) => {
+        console.warn(`[WebRTC] Audio autoplay caught for ${peer.displayName}:`, err);
+      });
+    }
+  };
 
   useEffect(() => {
-    if (videoRef.current && stream) {
+    if (videoRef.current && stream && videoRef.current.srcObject !== stream) {
       videoRef.current.srcObject = stream;
-      videoRef.current.play().catch((err) => {
-        console.warn(`[WebRTC] Autoplay for peer ${peer.displayName}:`, err);
-      });
+      videoRef.current.play().catch(() => {});
+    }
+    if (audioRef.current && stream && audioRef.current.srcObject !== stream) {
+      audioRef.current.srcObject = stream;
+      audioRef.current.play().catch(() => {});
     }
   }, [stream]);
 
@@ -35,17 +58,16 @@ export default function PeerVideoTile({
         !showVideo ? 'video-off-card' : ''
       }`}
     >
-      {/* Remote Video/Audio feed (audio stays playing even when video is muted/off) */}
+      {/* Dedicated audio element ensures incoming audio ALWAYS plays even if video is toggled or off */}
+      <audio ref={setAudioEl} autoPlay playsInline style={{ display: 'none' }} />
+
+      {/* Remote Video feed */}
       <video
-        ref={videoRef}
+        ref={setVideoEl}
         autoPlay
         playsInline
         className={`tile-video-feed ${!showVideo ? 'hidden-feed' : ''}`}
-        style={
-          !showVideo
-            ? { opacity: 0, position: 'absolute', pointerEvents: 'none', width: 1, height: 1 }
-            : { display: 'block' }
-        }
+        style={{ display: showVideo ? 'block' : 'none' }}
       />
 
       {/* When video is off: Google Meet style avatar */}

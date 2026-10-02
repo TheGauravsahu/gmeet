@@ -202,15 +202,20 @@ export default function LobbyPage() {
     socket.off('join-denied');
 
     // Host admitted or this user is first/host
-    socket.on('join-approved', ({ isHost }) => {
+    socket.on('join-approved', ({ isHost, assignedName }) => {
       setJoining(false);
       setWaitingForApproval(false);
+
+      const effectiveName = assignedName || finalName;
+      if (!user) {
+        setGuestName(effectiveName);
+      }
 
       navigate(`/meet/${roomCode}`, {
         state: {
           initialAudio: isMicOn,
           initialVideo: isVideoOn,
-          participantName: finalName,
+          participantName: effectiveName,
           isHost,
         },
       });

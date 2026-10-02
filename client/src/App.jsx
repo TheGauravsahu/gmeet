@@ -8,6 +8,7 @@ import MeetingRoomPage from './pages/MeetingRoomPage';
 import MeetingsDashboardPage from './pages/MeetingsDashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import MeetingEndedPage from './pages/MeetingEndedPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 import './App.css';
 import './Auth.css';
@@ -36,13 +37,41 @@ export default function App() {
           {/* Landing Home Page */}
           <Route path="/" element={<LandingWrapper />} />
 
-          {/* Google Meet Style Home & Meeting Management Console */}
-          <Route path="/home" element={<MeetingsDashboardPage />} />
-          <Route path="/meetings" element={<MeetingsDashboardPage />} />
-          <Route path="/dashboard" element={<MeetingsDashboardPage />} />
+          {/* Google Meet Style Home & Meeting Management Console (Protected) */}
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <MeetingsDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/meetings"
+            element={
+              <ProtectedRoute>
+                <MeetingsDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <MeetingsDashboardPage />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* User Profile Page */}
-          <Route path="/profile" element={<ProfilePage />} />
+          {/* User Profile Page (Protected) */}
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Authentication Pages */}
           <Route path="/signin" element={<AuthWrapper mode="signin" />} />

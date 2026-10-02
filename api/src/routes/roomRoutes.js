@@ -27,12 +27,12 @@ import { protect, optionalAuth } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 // --- Room Endpoints ---
-router.post('/', optionalAuth, createRoom);
-router.get('/', optionalAuth, listUserRooms);
+router.post('/', protect, createRoom);
+router.get('/', protect, listUserRooms);
 router.get('/:roomCode', getRoomByCode);
-router.patch('/:roomCode', optionalAuth, updateRoom);
-router.post('/:roomCode/end', optionalAuth, endRoom);
-router.delete('/:roomCode', optionalAuth, deleteRoom);
+router.patch('/:roomCode', protect, updateRoom);
+router.post('/:roomCode/end', protect, endRoom);
+router.delete('/:roomCode', protect, deleteRoom);
 
 // --- Participant Endpoints ---
 router.get('/:roomCode/participants', getRoomParticipants);

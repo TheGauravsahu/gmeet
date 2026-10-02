@@ -83,7 +83,7 @@ export default function LandingNav({
             <button
               className="btn-glass-pill"
               style={{ padding: '8px 18px', fontSize: '0.82rem' }}
-              onClick={() => onNavigate('/home')}
+              onClick={() => onNavigate('/signin')}
             >
               <Plus size={14} />
               <span>New Meeting</span>
