@@ -1,147 +1,124 @@
-# 🚀 AURA.MEET Backend API (Express.js & MongoDB)
+﻿# AURA.MEET API
 
-A high-performance, modular backend API and real-time WebRTC signaling engine for video conferencing built with **Express.js**, **MongoDB (Mongoose)**, and **Socket.io**.
+This document describes the backend REST API for the AURA.MEET video conferencing application.
 
----
+The API is built with Node.js, Express, MongoDB/Mongoose, and JWT-based auth. It exposes room lifecycle, participant state, chat, transcript, and AI assistant endpoints.
 
-## 📑 Table of Contents
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [Directory Structure](#-directory-structure)
-- [Getting Started](#-getting-started)
-- [Environment Configuration](#-environment-configuration)
-- [REST API Reference](#-rest-api-reference)
-  - [Health & Status](#health--status)
-  - [Authentication](#authentication)
-  - [Meeting Rooms](#meeting-rooms)
-  - [Participants](#participants)
-  - [In-Meeting Chat](#in-meeting-chat)
-  - [Live Transcripts & AI Notes](#live-transcripts--ai-notes)
-- [Real-Time WebRTC Signaling (Socket.io)](#-real-time-webrtc-signaling-socketio)
-- [Scripts](#-scripts)
+## Base URL
 
----
+- Local development: `http://localhost:5000`
+- API prefix: `/api`
 
-## ✨ Features
+## Technology Stack
 
-- **Robust REST API**: Built on Express.js with ES Modules, unified JSON response formats, and error handling.
-- **MongoDB & Mongoose**: Schemas with validation, indexes, and relations for Users, Rooms, Participants, Messages, and Transcripts.
-- **JWT Authentication & Guest Mode**: Supports both authenticated users and quick anonymous guest joins.
-- **Meeting Code Generator**: Google Meet-style meeting codes (e.g. `xkq-yztp-prv` or `xkq-92m-prv`).
-- **WebRTC Mesh Signaling**: Socket.io events for SDP offers, answers, ICE candidates, and peer discovery.
-- **Live State Sync**: Real-time microphone mute/unmute, camera toggle, screen sharing, and hand raise broadcasts.
-- **In-Call Chat & Live Transcriptions**: Persisted chat messages and real-time AI speech-to-text transcripts.
-- **Production Hardened**: Includes Helmet for secure HTTP headers, CORS configuration, Morgan logging, rate limiting, and graceful process shutdown.
+- Node.js
+- Express.js
+- MongoDB + Mongoose
+- JWT for authenticated routes
+- Socket.IO for real-time meeting signaling
 
----
+## Environment
 
-## 🛠 Tech Stack
+Create a `.env` file in `api/` using the values from `.env.example`.
 
-- **Runtime**: Node.js (v18+)
-- **Framework**: Express.js 4.x
-- **Database**: MongoDB with Mongoose 8.x
-- **Real-Time Signaling**: Socket.io 4.x
-- **Authentication**: JSON Web Tokens (`jsonwebtoken`) & `bcryptjs`
-- **Security & Utilities**: `helmet`, `cors`, `express-rate-limit`, `morgan`, `dotenv`
-
----
-
-## 📂 Directory Structure
-
-```
-api/
-├── .env                  # Local environment configuration
-├── .env.example          # Environment variables template
-├── .gitignore            # Git ignore file
-├── package.json          # Node dependencies and scripts
-├── README.md             # Backend documentation
-└── src/
-    ├── app.js            # Express app configuration & middleware
-    ├── server.js         # HTTP server, Socket.io, & MongoDB initialization
-    ├── config/
-    │   ├── db.js         # Mongoose connection & reconnection logic
-    │   └── index.js      # Central environment config
-    ├── controllers/
-    │   ├── authController.js        # User auth (register, login, profile)
-    │   ├── messageController.js     # Chat messages in rooms
-    │   ├── participantController.js # Room attendees & audio/video states
-    │   ├── roomController.js        # Meeting room lifecycle
-    │   └── transcriptController.js  # Live transcripts & AI speech notes
-    ├── middlewares/
-    │   ├── authMiddleware.js        # JWT protect & optional guest auth
-    │   ├── errorHandler.js          # Centralized error handler
-    │   └── notFoundHandler.js       # 404 route handler
-    ├── models/
-    │   ├── Message.js      # Chat messages schema
-    │   ├── Participant.js  # Participant sessions schema
-    │   ├── Room.js         # Meeting room schema
-    │   ├── Transcript.js   # Live transcripts schema
-    │   └── User.js         # User accounts schema with bcrypt
-    ├── routes/
-    │   ├── authRoutes.js        # /api/auth
-    │   ├── healthRoutes.js      # /api/health
-    │   ├── index.js             # Route aggregator
-    │   └── roomRoutes.js        # /api/rooms (including nested routes)
-    ├── sockets/
-    │   └── meetingSocket.js     # WebRTC signaling & real-time events
-    └── utils/
-        ├── apiResponse.js       # Standardized response envelopes
-        ├── codeGenerator.js     # Meeting code generator & validator
-        └── logger.js            # Formatted console logger
-```
-
----
-
-## 🚀 Getting Started
-
-### 1. Install Dependencies
-```bash
-cd api
-npm install
-```
-
-### 2. Configure Environment
-Copy `.env.example` to `.env` (already created by default):
-```bash
+```env
 PORT=5000
 NODE_ENV=development
 MONGODB_URI=mongodb://127.0.0.1:27017/gmeet
-JWT_SECRET=aura_meet_jwt_secret_key_change_me_in_production
+JWT_SECRET=change_this_in_production
 JWT_EXPIRES_IN=7d
 CORS_ORIGIN=http://localhost:5173
 ```
 
-### 3. Run the Server
-- **Development mode (with auto-reload)**:
-  ```bash
-  npm run dev
-  ```
-- **Production mode**:
-  ```bash
-  npm start
-  ```
+## Running the API
 
----
+```bash
+cd api
+npm install
+npm run dev
+```
 
-## 📡 REST API Reference
+Production mode:
 
-All successful responses return `{ success: true, message: "...", data: { ... } }`.
-Errors return `{ success: false, message: "...", errors: [...] }`.
+```bash
+npm start
+```
 
-### Health & Status
+## Response Format
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/` | API status and links | None |
-| `GET` | `/api/health` | Health check (checks MongoDB connectivity & uptime) | None |
+All endpoints return a JSON envelope with the same shape:
 
-#### Sample Health Response:
+### Success response
+
+```json
+{
+  "success": true,
+  "message": "Room details retrieved",
+  "data": {
+    "room": {
+      "roomCode": "abc-defg-hij"
+    }
+  }
+}
+```
+
+### Error response
+
+```json
+{
+  "success": false,
+  "message": "Room 'abc-defg-hij' not found",
+  "errors": []
+}
+```
+
+## Authentication
+
+Some endpoints require a JWT token. Pass it in the `Authorization` header:
+
+```http
+Authorization: Bearer YOUR_JWT_HERE
+```
+
+A token is returned from:
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+
+## Routes
+
+### GET `/`
+
+Returns basic API metadata.
+
+Example response:
+
+```json
+{
+  "name": "AURA.MEET Backend API",
+  "status": "online",
+  "version": "1.0.0",
+  "documentation": "/api/health",
+  "endpoints": {
+    "health": "/api/health",
+    "auth": "/api/auth",
+    "rooms": "/api/rooms"
+  }
+}
+```
+
+### GET `/api/health`
+
+Checks service health and database connectivity.
+
+Example response:
+
 ```json
 {
   "status": "ok",
   "service": "gmeet-api",
   "timestamp": "2026-10-02T17:28:00.000Z",
-  "uptime": 12,
+  "uptime": 45,
   "database": {
     "status": "connected",
     "connected": true,
@@ -156,128 +133,437 @@ Errors return `{ success: false, message: "...", errors: [...] }`.
 
 ---
 
-### Authentication
+### Auth endpoints
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | Register new user account | Public |
-| `POST` | `/api/auth/login` | Login and receive Bearer JWT token | Public |
-| `GET` | `/api/auth/me` | Get current authenticated user profile | Bearer Token |
-| `PUT` | `/api/auth/profile` | Update profile (name, avatar) | Bearer Token |
+#### POST `/api/auth/register`
 
-#### Register Request Body:
+Create a new user account.
+
+Request body:
+
 ```json
 {
   "name": "Alex Rivera",
-  "email": "alex@aura.ai",
+  "email": "alex@example.com",
+  "password": "Password123!",
+  "avatar": "https://example.com/avatar.png"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "User registered successfully",
+  "data": {
+    "user": {
+      "id": "64f1c4d2...",
+      "name": "Alex Rivera",
+      "email": "alex@example.com",
+      "avatar": "https://example.com/avatar.png",
+      "role": "user"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+#### POST `/api/auth/login`
+
+Authenticate and receive a JWT.
+
+Request body:
+
+```json
+{
+  "email": "alex@example.com",
   "password": "Password123!"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "id": "64f1c4d2...",
+      "name": "Alex Rivera",
+      "email": "alex@example.com",
+      "avatar": "https://example.com/avatar.png",
+      "role": "user"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+#### GET `/api/auth/me`
+
+Get the current authenticated user.
+
+Headers:
+
+```http
+Authorization: Bearer YOUR_JWT_HERE
+```
+
+#### PUT `/api/auth/profile`
+
+Update the current user's profile.
+
+Request body:
+
+```json
+{
+  "name": "Alex Rivera",
+  "avatar": "https://example.com/new-avatar.png"
 }
 ```
 
 ---
 
-### Meeting Rooms
+### Room endpoints
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `POST` | `/api/rooms` | Create a new room (generates code if omitted) | Public / Optional Token |
-| `GET` | `/api/rooms` | List rooms created by the authenticated user | Bearer Token |
-| `GET` | `/api/rooms/:roomCode` | Get details and settings for a room | Public |
-| `PATCH` | `/api/rooms/:roomCode` | Update room settings (lock, allowChat, muteOnEntry) | Host / Public |
-| `POST` | `/api/rooms/:roomCode/end` | Mark room as ended | Host / Public |
+#### POST `/api/rooms`
 
-#### Create Room Request Body:
+Create a meeting room.
+
+Authentication: optional auth supported.
+
+Request body:
+
 ```json
 {
   "title": "Weekly Engineering Sync",
-  "customCode": "xkq-92m-prv", // optional; auto-generated if omitted
+  "description": "Sprint planning and release review",
+  "customCode": "abc-defg-hij",
+  "hostName": "Alex Rivera",
+  "scheduledFor": "2026-10-02T18:00:00.000Z",
   "settings": {
     "isLocked": false,
     "muteOnEntry": false,
     "allowScreenShare": true,
-    "allowChat": true
+    "allowChat": true,
+    "requireHostApproval": false,
+    "aiTranscriptionEnabled": true
+  }
+}
+```
+
+Notes:
+
+- If `customCode` is omitted, a room code is generated automatically.
+- Room codes follow a Google Meet-like pattern such as `abc-defg-hij`.
+- `scheduledFor` sets the status to `scheduled` when included.
+
+Example response:
+
+```json
+{
+  "success": true,
+  "message": "Meeting room created successfully",
+  "data": {
+    "room": {
+      "id": "64f1c4d2...",
+      "roomCode": "abc-defg-hij",
+      "title": "Weekly Engineering Sync",
+      "description": "Sprint planning and release review",
+      "hostName": "Alex Rivera",
+      "status": "active",
+      "settings": {
+        "isLocked": false,
+        "muteOnEntry": false,
+        "allowScreenShare": true,
+        "allowChat": true,
+        "requireHostApproval": false,
+        "aiTranscriptionEnabled": true
+      },
+      "scheduledFor": null,
+      "startedAt": "2026-10-02T17:30:00.000Z",
+      "meetingUrl": "/meet/abc-defg-hij"
+    }
+  }
+}
+```
+
+#### GET `/api/rooms`
+
+List rooms for the authenticated user.
+
+Authentication: required.
+
+Optional query:
+
+```http
+GET /api/rooms?hostName=Alex%20Rivera
+```
+
+#### GET `/api/rooms/:roomCode`
+
+Fetch a room by its code.
+
+Example:
+
+```http
+GET /api/rooms/abc-defg-hij
+```
+
+#### PATCH `/api/rooms/:roomCode`
+
+Update room metadata/settings.
+
+Authentication: required for authenticated host ownership checks.
+
+Request body example:
+
+```json
+{
+  "title": "Updated Meeting Title",
+  "description": "New agenda",
+  "settings": {
+    "isLocked": true,
+    "allowChat": false
+  }
+}
+```
+
+#### POST `/api/rooms/:roomCode/end`
+
+Mark a room as ended.
+
+Authentication: required for host validation.
+
+#### DELETE `/api/rooms/:roomCode`
+
+Delete a meeting room record.
+
+---
+
+### Participant endpoints
+
+#### GET `/api/rooms/:roomCode/participants`
+
+Return active participants in the room.
+
+Example:
+
+```json
+{
+  "success": true,
+  "message": "Active participants retrieved",
+  "data": {
+    "count": 2,
+    "participants": [
+      {
+        "_id": "64f1c4d2...",
+        "roomCode": "abc-defg-hij",
+        "displayName": "Alex Rivera",
+        "avatar": "https://example.com/avatar.png",
+        "role": "host",
+        "isAudioMuted": false,
+        "isVideoMuted": false,
+        "isScreenSharing": false,
+        "isHandRaised": false,
+        "isActive": true,
+        "joinedAt": "2026-10-02T17:30:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+#### POST `/api/rooms/:roomCode/participants/join`
+
+Register a participant's join session.
+
+Request body:
+
+```json
+{
+  "displayName": "Sam Lee",
+  "avatar": "https://example.com/sam.png",
+  "socketId": "socket-123",
+  "peerId": "peer-456",
+  "isAudioMuted": false,
+  "isVideoMuted": false
+}
+```
+
+Authentication: optional. If a JWT is supplied, the user profile is used.
+
+#### PATCH `/api/rooms/:roomCode/participants/:participantId`
+
+Update the participant's media/hand state.
+
+Request body:
+
+```json
+{
+  "isAudioMuted": true,
+  "isVideoMuted": false,
+  "isScreenSharing": true,
+  "isHandRaised": false
+}
+```
+
+#### POST `/api/rooms/:roomCode/participants/:participantId/leave`
+
+Mark a participant as left.
+
+---
+
+### Message endpoints
+
+#### GET `/api/rooms/:roomCode/messages?limit=50`
+
+Return recent room chat messages.
+
+#### POST `/api/rooms/:roomCode/messages`
+
+Send a chat message in a room.
+
+Request body:
+
+```json
+{
+  "senderName": "Sam Lee",
+  "senderAvatar": "https://example.com/sam.png",
+  "content": "Can everyone see the screen?",
+  "type": "text"
+}
+```
+
+Notes:
+
+- `content` is required and cannot be empty.
+- If `allowChat` is disabled on the room, the API rejects the request with `403`.
+
+---
+
+### AI assistant endpoint
+
+#### POST `/api/rooms/:roomCode/ai-chat`
+
+Ask AURA AI for help based on recent room messages.
+
+Request body:
+
+```json
+{
+  "prompt": "Summarize the last few notes from this meeting.",
+  "apiKey": "optional-gemini-api-key",
+  "senderName": "Alex Rivera"
+}
+```
+
+Example response:
+
+```json
+{
+  "success": true,
+  "message": "Aura AI replied successfully",
+  "data": {
+    "reply": "Here is a summary of the key discussion points...",
+    "senderName": "Aura AI",
+    "timestamp": "2026-10-02T17:35:00.000Z"
   }
 }
 ```
 
 ---
 
-### Participants
+### Transcript endpoints
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/api/rooms/:roomCode/participants` | Get active participants in a meeting | Public |
-| `POST` | `/api/rooms/:roomCode/participants/join` | Register participant join session | Public / Optional Token |
-| `PATCH` | `/api/rooms/:roomCode/participants/:id` | Update mic/cam/hand state | Public |
-| `POST` | `/api/rooms/:roomCode/participants/:id/leave` | Record participant departure | Public |
+#### GET `/api/rooms/:roomCode/transcripts?limit=100`
 
----
+Return transcript logs for the room.
 
-### In-Meeting Chat
+#### POST `/api/rooms/:roomCode/transcripts`
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/api/rooms/:roomCode/messages?limit=50` | Retrieve chat history for the meeting | Public |
-| `POST` | `/api/rooms/:roomCode/messages` | Post a chat message | Public / Optional Token |
+Append a transcript chunk or speaker note.
 
-#### Post Message Body:
-```json
-{
-  "senderName": "Sarah Jenkins",
-  "content": "Can everyone see my shared architecture diagram?"
-}
-```
+Request body:
 
----
-
-### Live Transcripts & AI Notes
-
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/api/rooms/:roomCode/transcripts?limit=100` | Fetch speech transcripts for room | Public |
-| `POST` | `/api/rooms/:roomCode/transcripts` | Append real-time transcript snippet | Public |
-
-#### Post Transcript Body:
 ```json
 {
   "speaker": "Elena Rostova",
-  "text": "Sub-40ms latency confirmed across all Tokyo & Frankfurt nodes.",
+  "text": "Latency is stable across the global nodes.",
   "confidence": 0.99
 }
 ```
 
----
+Example response:
 
-## ⚡ Real-Time WebRTC Signaling (Socket.io)
-
-Connect a Socket.io client to `http://localhost:5000`.
-
-### Client to Server Events:
-- `join-room`: `{ roomCode, user: { displayName, avatar, peerId, isAudioMuted, isVideoMuted } }`
-- `webrtc-offer`: `{ targetSocketId, offer }`
-- `webrtc-answer`: `{ targetSocketId, answer }`
-- `ice-candidate`: `{ targetSocketId, candidate }`
-- `toggle-media-state`: `{ isAudioMuted, isVideoMuted, isScreenSharing }`
-- `raise-hand`: `{ isHandRaised: true/false }`
-- `send-message`: `{ content: "..." }`
-- `live-transcript`: `{ speaker, text, confidence }`
-- `leave-room`: Signals departure from meeting
-
-### Server to Client Events:
-- `existing-participants`: `{ participants: [...] }` (sent to newly joined peer)
-- `user-joined`: `{ socketId, peerId, displayName, avatar, isAudioMuted, isVideoMuted }`
-- `webrtc-offer`: `{ callerSocketId, offer }`
-- `webrtc-answer`: `{ responderSocketId, answer }`
-- `ice-candidate`: `{ senderSocketId, candidate }`
-- `user-media-state-changed`: `{ socketId, isAudioMuted, isVideoMuted, isScreenSharing }`
-- `user-raised-hand`: `{ socketId, displayName, isHandRaised }`
-- `new-message`: `{ socketId, senderName, senderAvatar, content, timestamp }`
-- `transcript-update`: `{ speaker, text, confidence, timestamp }`
-- `user-left`: `{ socketId, displayName }`
+```json
+{
+  "success": true,
+  "message": "Transcript logged",
+  "data": {
+    "transcript": {
+      "roomCode": "abc-defg-hij",
+      "speaker": "Elena Rostova",
+      "text": "Latency is stable across the global nodes.",
+      "confidence": 0.99,
+      "timestamp": "2026-10-02T17:36:00.000Z"
+    }
+  }
+}
+```
 
 ---
 
-## 🧪 Quick Test Commands
+## Socket.IO real-time signaling
+
+The backend also exposes Socket.IO events for real-time meeting functionality.
+
+Connect to:
+
+```text
+http://localhost:5000
+```
+
+### Client-to-server events
+
+- `join-room`
+- `webrtc-offer`
+- `webrtc-answer`
+- `ice-candidate`
+- `toggle-media-state`
+- `raise-hand`
+- `send-message`
+- `live-transcript`
+- `leave-room`
+
+### Server-to-client events
+
+- `existing-participants`
+- `user-joined`
+- `webrtc-offer`
+- `webrtc-answer`
+- `ice-candidate`
+- `user-media-state-changed`
+- `user-raised-hand`
+- `new-message`
+- `transcript-update`
+- `user-left`
+
+---
+
+## Common status codes
+
+- `200` OK
+- `201` Created
+- `400` Bad request
+- `401` Unauthorized
+- `403` Forbidden
+- `404` Not found
+- `500` Internal server error
+
+## Quick tests
 
 ```bash
 # Health check
@@ -286,8 +572,20 @@ curl http://localhost:5000/api/health
 # Create room
 curl -X POST http://localhost:5000/api/rooms \
   -H "Content-Type: application/json" \
-  -d '{"title": "Sprint Review", "hostName": "Elena"}'
+  -d '{"title":"Sprint Review","hostName":"Elena"}'
 
 # Get room details
-curl http://localhost:5000/api/rooms/<ROOM_CODE>
+curl http://localhost:5000/api/rooms/abc-defg-hij
+
+# Register a user
+curl -X POST http://localhost:5000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alex Rivera","email":"alex@example.com","password":"Password123!"}'
 ```
+
+## Notes
+
+- The API validates room codes and normalizes them to lowercase.
+- Protected endpoints rely on JWT identity and can support guest access when the request is optional.
+- Room and participant records are persisted in MongoDB and used by the real-time signaling layer.
+
