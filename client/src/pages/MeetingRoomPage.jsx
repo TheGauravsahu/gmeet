@@ -1,61 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import {
-  Mic,
-  MicOff,
-  Video,
-  VideoOff,
-  PhoneOff,
-  Monitor,
-  Hand,
-  MessageSquare,
-  Users,
-  Subtitles,
-  ShieldCheck,
-  Copy,
-  Check,
-  Send,
-  X,
-  Sparkles,
-  Info,
-  Maximize2,
-  Volume2,
-  Share2,
-} from 'lucide-react';
+import { X } from 'lucide-react';
 import { api } from '../services/api';
-import { getSocket, connectSocket } from '../services/socket';
+import { connectSocket } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
 
-// Fallback initial participants to create a lively realistic room
-const INITIAL_DEMO_PEERS = [
-  {
-    id: 'demo-1',
-    displayName: 'Elena Rostova',
-    role: 'Lead Architect',
-    isAudioMuted: false,
-    isVideoMuted: false,
-    activeSpeaker: true,
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    id: 'demo-2',
-    displayName: 'Marcus Sterling',
-    role: 'VP Engineering',
-    isAudioMuted: true,
-    isVideoMuted: false,
-    activeSpeaker: false,
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    id: 'demo-3',
-    displayName: 'Sarah Jenkins',
-    role: 'AI Researcher',
-    isAudioMuted: false,
-    isVideoMuted: false,
-    activeSpeaker: false,
-    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
-  },
-];
+// Modular Meeting Components
+import MeetingTopBar from '../components/meeting/MeetingTopBar';
+import HostKnockBanner from '../components/meeting/HostKnockBanner';
+import VideoGridStage from '../components/meeting/VideoGridStage';
+import MeetingDock from '../components/meeting/MeetingDock';
+import ChatDrawer from '../components/meeting/ChatDrawer';
+import ParticipantsDrawer from '../components/meeting/ParticipantsDrawer';
+import {
+  WaitingApprovalModal,
+  AdmissionDeniedModal,
+  GeminiKeyModal,
+  FloatingToast,
+} from '../components/meeting/MeetingModals';
+
+// Google STUN servers for reliable peer-to-peer WebRTC connections
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+  ],
+};
 
 export default function MeetingRoomPage() {
   const { roomCode } = useParams();
@@ -63,12 +36,18 @@ export default function MeetingRoomPage() {
   const location = useLocation();
   const { displayName, user } = useAuth();
 
-  // Settings from lobby or defaults
+  // Settings passed from lobby
   const initialAudio = location.state?.initialAudio !== false;
   const initialVideo = location.state?.initialVideo !== false;
   const myName = location.state?.participantName || displayName || 'You';
 
-  // Local media states
+  // Host & Admission state
+  const [isHost, setIsHost] = useState(location.state?.isHost || false);
+  const [pendingGuests, setPendingGuests] = useState([]);
+  const [waitingForAdmission, setWaitingForAdmission] = useState(false);
+  const [admissionDenied, setAdmissionDenied] = useState(false);
+
+  // Local media state
   const [isMicOn, setIsMicOn] = useState(initialAudio);
   const [isVideoOn, setIsVideoOn] = useState(initialVideo);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -79,35 +58,76 @@ export default function MeetingRoomPage() {
   // Call duration counter
   const [callDuration, setCallDuration] = useState(0);
 
-  // Active drawers: 'chat' | 'participants' | 'transcripts' | null
+  // Floating notification toast (e.g., host muted you)
+  const [toastMessage, setToastMessage] = useState(null);
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  // Active side drawer: 'chat' | 'participants' | null
   const [activeDrawer, setActiveDrawer] = useState(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
 
-  // Captions / AI Transcript state
-  const [showCaptions, setShowCaptions] = useState(true);
-  const [liveCaptionText, setLiveCaptionText] = useState(
-    'Sarah: "Gemini is synthesizing our cross-region telemetry in real time..."'
-  );
-  const [transcriptsList, setTranscriptsList] = useState([]);
-  const [customTranscriptInput, setCustomTranscriptInput] = useState('');
+  // REAL Remote participants list (no mock peers!)
+  const [participants, setParticipants] = useState([]);
+  const [remoteStreams, setRemoteStreams] = useState({});
+  const [raisedHands, setRaisedHands] = useState({});
 
-  // Chat state
-  const [messages, setMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-
-  // Participants in meeting
-  const [participants, setParticipants] = useState(INITIAL_DEMO_PEERS);
+  // Room details
   const [roomInfo, setRoomInfo] = useState(null);
-
-  // Toast / link copy
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // In-Call Chat state
+  const [messages, setMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [mentionQuery, setMentionQuery] = useState(null);
+  const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
+
+  // Aura AI state
+  const [isAuraThinking, setIsAuraThinking] = useState(false);
+  const [auraAutoReply, setAuraAutoReply] = useState(false);
+  const [geminiApiKey, setGeminiApiKey] = useState(
+    () => localStorage.getItem('aura_gemini_api_key') || ''
+  );
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [tempKeyInput, setTempKeyInput] = useState(geminiApiKey);
+
+  // Refs
   const localVideoRef = useRef(null);
   const screenVideoRef = useRef(null);
   const chatBottomRef = useRef(null);
+  const chatInputRef = useRef(null);
   const socketRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const peerConnectionsRef = useRef(new Map()); // socketId -> RTCPeerConnection
+  const remoteStreamsRef = useRef(new Map()); // socketId -> MediaStream
+  const pendingCandidatesRef = useRef(new Map()); // socketId -> RTCIceCandidateInit[]
 
-  // 1. Timer for meeting duration
+  // Keep localStreamRef synced
+  useEffect(() => {
+    localStreamRef.current = localStream;
+  }, [localStream]);
+
+  const activeDrawerRef = useRef(activeDrawer);
+  activeDrawerRef.current = activeDrawer;
+
+  const isMicOnRef = useRef(isMicOn);
+  isMicOnRef.current = isMicOn;
+
+  const isVideoOnRef = useRef(isVideoOn);
+  isVideoOnRef.current = isVideoOn;
+
+  const myNameRef = useRef(myName);
+  myNameRef.current = myName;
+
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  // 1. Meeting Duration Timer
   useEffect(() => {
     const timer = setInterval(() => {
       setCallDuration((prev) => prev + 1);
@@ -115,22 +135,19 @@ export default function MeetingRoomPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Format call duration MM:SS or HH:MM:SS
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // 2. Fetch room info, initial messages & transcripts from REST API
+  // 2. Load Room info & existing chat messages from REST API
   useEffect(() => {
     const loadRoomData = async () => {
       try {
-        const [roomRes, msgRes, transcriptRes, partRes] = await Promise.allSettled([
+        const [roomRes, msgRes] = await Promise.allSettled([
           api.rooms.getRoom(roomCode),
           api.messages.getMessages(roomCode),
-          api.transcripts.getTranscripts(roomCode),
-          api.participants.getParticipants(roomCode),
         ]);
 
         if (roomRes.status === 'fulfilled' && roomRes.value.success) {
@@ -138,24 +155,6 @@ export default function MeetingRoomPage() {
         }
         if (msgRes.status === 'fulfilled' && msgRes.value.success) {
           setMessages(msgRes.value.data.messages || []);
-        }
-        if (transcriptRes.status === 'fulfilled' && transcriptRes.value.success) {
-          setTranscriptsList(transcriptRes.value.data.transcripts || []);
-        }
-        if (partRes.status === 'fulfilled' && partRes.value.success) {
-          const apiParticipants = partRes.value.data.participants || [];
-          if (apiParticipants.length > 0) {
-            // Merge with demo participants
-            setParticipants((prev) => {
-              const combined = [...apiParticipants];
-              INITIAL_DEMO_PEERS.forEach((demo) => {
-                if (!combined.some((p) => p.displayName === demo.displayName)) {
-                  combined.push(demo);
-                }
-              });
-              return combined;
-            });
-          }
         }
       } catch (err) {
         console.warn('Error fetching meeting initial state:', err);
@@ -167,35 +166,144 @@ export default function MeetingRoomPage() {
     }
   }, [roomCode]);
 
-  // 3. Initialize local webcam stream
+  // --------------------------------------------------------------------------
+  // WebRTC Peer Connection Helper
+  // --------------------------------------------------------------------------
+  const createPeerConnection = useCallback(
+    (targetSocketId, isInitiator = false) => {
+      if (peerConnectionsRef.current.has(targetSocketId)) {
+        peerConnectionsRef.current.get(targetSocketId).close();
+      }
+
+      console.log(`[WebRTC] Creating RTCPeerConnection for ${targetSocketId} (initiator: ${isInitiator})`);
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      peerConnectionsRef.current.set(targetSocketId, pc);
+
+      const remoteStream = new MediaStream();
+      remoteStreamsRef.current.set(targetSocketId, remoteStream);
+      setRemoteStreams((prev) => ({ ...prev, [targetSocketId]: remoteStream }));
+
+      // Add local audio and video tracks
+      const streamToAdd = localStreamRef.current;
+      if (streamToAdd) {
+        streamToAdd.getTracks().forEach((track) => {
+          pc.addTrack(track, streamToAdd);
+        });
+      }
+
+      // Handle incoming remote media tracks
+      pc.ontrack = (event) => {
+        console.log(`[WebRTC] ontrack from ${targetSocketId}:`, event.track?.kind);
+        const incomingTrack = event.track;
+        if (incomingTrack && !remoteStream.getTracks().some((t) => t.id === incomingTrack.id)) {
+          remoteStream.addTrack(incomingTrack);
+        }
+        if (event.streams && event.streams[0]) {
+          event.streams[0].getTracks().forEach((track) => {
+            if (!remoteStream.getTracks().some((t) => t.id === track.id)) {
+              remoteStream.addTrack(track);
+            }
+          });
+        }
+        setRemoteStreams((prev) => ({
+          ...prev,
+          [targetSocketId]: new MediaStream(remoteStream.getTracks()),
+        }));
+      };
+
+      // Handle ICE candidate generation
+      pc.onicecandidate = (event) => {
+        if (event.candidate && socketRef.current?.connected) {
+          socketRef.current.emit('ice-candidate', {
+            targetSocketId,
+            candidate: event.candidate,
+          });
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        console.log(`[WebRTC] Connection state with ${targetSocketId}: ${pc.connectionState}`);
+      };
+
+      // If initiator, create and send SDP offer
+      if (isInitiator) {
+        pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
+          .then((offer) => pc.setLocalDescription(offer))
+          .then(() => {
+            if (socketRef.current?.connected) {
+              socketRef.current.emit('webrtc-offer', {
+                targetSocketId,
+                offer: pc.localDescription,
+              });
+            }
+          })
+          .catch((err) => console.error('[WebRTC] Error creating offer:', err));
+      }
+
+      return pc;
+    },
+    []
+  );
+
+  // --------------------------------------------------------------------------
+  // 3. Local Media Setup (Camera & Microphone)
+  // --------------------------------------------------------------------------
   useEffect(() => {
-    let streamInstance = null;
+    let currentStream = null;
 
     const startLocalMedia = async () => {
       try {
-        streamInstance = await navigator.mediaDevices.getUserMedia({
+        currentStream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
         });
-        setLocalStream(streamInstance);
+
+        // Apply initial mute settings
+        currentStream.getVideoTracks().forEach((t) => {
+          t.enabled = initialVideo;
+        });
+        currentStream.getAudioTracks().forEach((t) => {
+          t.enabled = initialAudio;
+        });
+
+        localStreamRef.current = currentStream;
+        setLocalStream(currentStream);
+
         if (localVideoRef.current) {
-          localVideoRef.current.srcObject = streamInstance;
+          localVideoRef.current.srcObject = currentStream;
         }
+
+        // Attach local tracks to any peer connections that were established early
+        peerConnectionsRef.current.forEach((pc) => {
+          const senders = pc.getSenders();
+          currentStream.getTracks().forEach((track) => {
+            const existingSender = senders.find((s) => s.track && s.track.kind === track.kind);
+            if (existingSender) {
+              existingSender.replaceTrack(track).catch(console.warn);
+            } else {
+              try {
+                pc.addTrack(track, currentStream);
+              } catch (e) {
+                console.warn('[WebRTC] Error adding track to existing PC:', e);
+              }
+            }
+          });
+        });
       } catch (err) {
-        console.warn('Webcam permission not granted:', err);
+        console.warn('Webcam/Mic permission error:', err);
       }
     };
 
     startLocalMedia();
 
     return () => {
-      if (streamInstance) {
-        streamInstance.getTracks().forEach((track) => track.stop());
+      if (currentStream) {
+        currentStream.getTracks().forEach((t) => t.stop());
       }
     };
-  }, []);
+  }, [initialAudio, initialVideo]);
 
-  // Sync mic/camera track enable state
+  // Sync mic & video enabled states on local stream
   useEffect(() => {
     if (localStream) {
       localStream.getVideoTracks().forEach((track) => {
@@ -206,7 +314,6 @@ export default function MeetingRoomPage() {
       });
     }
 
-    // Broadcast media state update to socket
     if (socketRef.current?.connected) {
       socketRef.current.emit('toggle-media-state', {
         isAudioMuted: !isMicOn,
@@ -216,39 +323,157 @@ export default function MeetingRoomPage() {
     }
   }, [isMicOn, isVideoOn, localStream, isScreenSharing]);
 
-  // 4. Socket.io Real-Time Integration
+  // --------------------------------------------------------------------------
+  // 4. Socket.io Real-Time Signaling, WebRTC Mesh & Host Admission
+  // --------------------------------------------------------------------------
   useEffect(() => {
     const socket = connectSocket();
     socketRef.current = socket;
 
-    // Join room
+    // Join room event (server checks host admission)
     socket.emit('join-room', {
       roomCode,
       user: {
-        displayName: myName,
-        avatar: user?.avatar || '',
-        isAudioMuted: !isMicOn,
-        isVideoMuted: !isVideoOn,
+        displayName: myNameRef.current,
+        avatar: userRef.current?.avatar || '',
+        isAudioMuted: !isMicOnRef.current,
+        isVideoMuted: !isVideoOnRef.current,
       },
     });
 
-    // Handle existing participants
-    socket.on('existing-participants', ({ participants: existing }) => {
-      if (existing && existing.length > 0) {
-        setParticipants((prev) => {
-          const map = new Map(prev.map((p) => [p.socketId || p.id, p]));
-          existing.forEach((p) => map.set(p.socketId, p));
-          return Array.from(map.values());
+    // 4a. Host Status
+    socket.on('host-status', ({ isHost: hostStatus }) => {
+      console.log('[Socket] Host status updated:', hostStatus);
+      setIsHost(!!hostStatus);
+    });
+
+    // 4b. Knocking / Admission Events
+    socket.on('waiting-for-host', () => {
+      setWaitingForAdmission(true);
+    });
+
+    socket.on('join-approved', ({ isHost: hostStatus }) => {
+      console.log('[Socket] join-approved received, entering room now...');
+      setWaitingForAdmission(false);
+      setIsHost(!!hostStatus);
+
+      // Re-emit join-room so that the approved guest enters the room and exchanges peer list
+      socket.emit('join-room', {
+        roomCode,
+        user: {
+          displayName: myNameRef.current,
+          avatar: userRef.current?.avatar || '',
+          isAudioMuted: !isMicOnRef.current,
+          isVideoMuted: !isVideoOnRef.current,
+        },
+      });
+    });
+
+    socket.on('join-denied', () => {
+      setWaitingForAdmission(false);
+      setAdmissionDenied(true);
+    });
+
+    socket.on('guest-knocking', (guest) => {
+      console.log('[Host] Guest knocking:', guest);
+      setPendingGuests((prev) => {
+        if (prev.some((g) => g.socketId === guest.socketId)) return prev;
+        return [...prev, guest];
+      });
+    });
+
+    socket.on('pending-knocks-updated', (knocks) => {
+      setPendingGuests(knocks || []);
+    });
+
+    // 4c. Existing participants list when admitted
+    socket.on('existing-participants', async ({ participants: existing }) => {
+      if (!existing || existing.length === 0) return;
+
+      console.log('[WebRTC] Received existing participants:', existing);
+      setParticipants((prev) => {
+        const map = new Map(prev.map((p) => [p.socketId, p]));
+        existing.forEach((p) => map.set(p.socketId, p));
+        return Array.from(map.values());
+      });
+
+      // Initiate WebRTC offer to each existing peer
+      existing.forEach((peer) => {
+        createPeerConnection(peer.socketId, true);
+      });
+    });
+
+    // 4d. New user joined room
+    socket.on('user-joined', (newcomer) => {
+      console.log('[WebRTC] New user joined room:', newcomer);
+      setParticipants((prev) => {
+        if (prev.some((p) => p.socketId === newcomer.socketId)) return prev;
+        return [...prev, newcomer];
+      });
+    });
+
+    // 4e. WebRTC Offer Received
+    socket.on('webrtc-offer', async ({ callerSocketId, offer }) => {
+      console.log('[WebRTC] Received offer from:', callerSocketId);
+      const pc = createPeerConnection(callerSocketId, false);
+
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+        const queue = pendingCandidatesRef.current.get(callerSocketId) || [];
+        for (const candidate of queue) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.warn);
+        }
+        pendingCandidatesRef.current.delete(callerSocketId);
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        socket.emit('webrtc-answer', {
+          targetSocketId: callerSocketId,
+          answer: pc.localDescription,
         });
+      } catch (err) {
+        console.error('[WebRTC] Error handling offer:', err);
       }
     });
 
-    // Handle new user joined
-    socket.on('user-joined', (newcomer) => {
-      setParticipants((prev) => [...prev, newcomer]);
+    // 4f. WebRTC Answer Received
+    socket.on('webrtc-answer', async ({ responderSocketId, answer }) => {
+      console.log('[WebRTC] Received answer from:', responderSocketId);
+      const pc = peerConnectionsRef.current.get(responderSocketId);
+      if (pc) {
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+
+          const queue = pendingCandidatesRef.current.get(responderSocketId) || [];
+          for (const candidate of queue) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.warn);
+          }
+          pendingCandidatesRef.current.delete(responderSocketId);
+        } catch (err) {
+          console.error('[WebRTC] Error handling answer:', err);
+        }
+      }
     });
 
-    // Handle peer media state change
+    // 4g. ICE Candidate Received
+    socket.on('ice-candidate', async ({ senderSocketId, candidate }) => {
+      const pc = peerConnectionsRef.current.get(senderSocketId);
+      if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          console.warn('[WebRTC] Error adding ICE candidate:', err);
+        }
+      } else {
+        const queue = pendingCandidatesRef.current.get(senderSocketId) || [];
+        queue.push(candidate);
+        pendingCandidatesRef.current.set(senderSocketId, queue);
+      }
+    });
+
+    // 4h. Peer Media State Changed
     socket.on('user-media-state-changed', ({ socketId, isAudioMuted, isVideoMuted }) => {
       setParticipants((prev) =>
         prev.map((p) =>
@@ -257,74 +482,369 @@ export default function MeetingRoomPage() {
       );
     });
 
-    // Handle chat messages
+    // 4i. Peer Raised Hand
+    socket.on('user-raised-hand', ({ socketId, isHandRaised: raised }) => {
+      setRaisedHands((prev) => ({ ...prev, [socketId]: raised }));
+    });
+
+    // 4j. Chat messages (including Aura AI replies & @mentions)
     socket.on('new-message', (msg) => {
       setMessages((prev) => [...prev, msg]);
-      if (activeDrawer !== 'chat') {
+      if (activeDrawerRef.current !== 'chat') {
         setUnreadChatCount((prev) => prev + 1);
+
+        const content = (msg.content || '').toLowerCase();
+        const myHandle = `@${myNameRef.current.replace(/\s+/g, '_').toLowerCase()}`;
+        const isFromMe = msg.senderName === myNameRef.current;
+
+        if (!isFromMe && (content.includes(myHandle) || content.includes('@everyone') || content.includes('@all'))) {
+          setToastMessage(`💬 ${msg.senderName} mentioned you: "${msg.content.slice(0, 34)}..."`);
+        }
       }
     });
 
-    // Handle live transcripts
-    socket.on('transcript-update', (t) => {
-      setTranscriptsList((prev) => [...prev, t]);
-      setLiveCaptionText(`${t.speaker}: "${t.text}"`);
+    // 4k. Aura AI status
+    socket.on('aura-status', ({ isThinking }) => {
+      setIsAuraThinking(!!isThinking);
     });
 
-    // Handle user left
+    // 4l. User Left room
     socket.on('user-left', ({ socketId }) => {
+      console.log('[WebRTC] User left:', socketId);
+      if (peerConnectionsRef.current.has(socketId)) {
+        peerConnectionsRef.current.get(socketId).close();
+        peerConnectionsRef.current.delete(socketId);
+      }
+      remoteStreamsRef.current.delete(socketId);
+      setRemoteStreams((prev) => {
+        const updated = { ...prev };
+        delete updated[socketId];
+        return updated;
+      });
       setParticipants((prev) => prev.filter((p) => p.socketId !== socketId));
+      setRaisedHands((prev) => {
+        const updated = { ...prev };
+        delete updated[socketId];
+        return updated;
+      });
+    });
+
+    // 4m. Host Remote Media Action (Mute/Unmute & Turn On/Off Camera)
+    socket.on('host-media-action', async ({ mediaType, action, hostName }) => {
+      console.log(`[Host Action] ${hostName} executed ${action} on ${mediaType}`);
+
+      if (mediaType === 'audio') {
+        if (action === 'mute') {
+          setIsMicOn(false);
+          if (localStreamRef.current) {
+            localStreamRef.current.getAudioTracks().forEach((t) => {
+              t.enabled = false;
+            });
+          }
+          socket.emit('toggle-media-state', {
+            isAudioMuted: true,
+            isVideoMuted: !isVideoOnRef.current,
+            isScreenSharing: false,
+          });
+          setToastMessage(`${hostName || 'Host'} muted your microphone`);
+        } else if (action === 'unmute') {
+          setIsMicOn(true);
+          if (localStreamRef.current) {
+            localStreamRef.current.getAudioTracks().forEach((t) => {
+              t.enabled = true;
+            });
+          }
+          socket.emit('toggle-media-state', {
+            isAudioMuted: false,
+            isVideoMuted: !isVideoOnRef.current,
+            isScreenSharing: false,
+          });
+          setToastMessage(`${hostName || 'Host'} unmuted your microphone`);
+        }
+      } else if (mediaType === 'video') {
+        if (action === 'disable-video') {
+          setIsVideoOn(false);
+          if (localStreamRef.current) {
+            localStreamRef.current.getVideoTracks().forEach((t) => {
+              t.enabled = false;
+            });
+          }
+          socket.emit('toggle-media-state', {
+            isAudioMuted: !isMicOnRef.current,
+            isVideoMuted: true,
+            isScreenSharing: false,
+          });
+          setToastMessage(`${hostName || 'Host'} turned off your camera`);
+        } else if (action === 'enable-video') {
+          setIsVideoOn(true);
+          if (localStreamRef.current && localStreamRef.current.getVideoTracks().length > 0) {
+            localStreamRef.current.getVideoTracks().forEach((t) => {
+              t.enabled = true;
+            });
+          }
+          socket.emit('toggle-media-state', {
+            isAudioMuted: !isMicOnRef.current,
+            isVideoMuted: false,
+            isScreenSharing: false,
+          });
+          setToastMessage(`${hostName || 'Host'} turned on your camera`);
+        }
+      }
     });
 
     return () => {
       socket.emit('leave-room');
+      socket.off('host-status');
+      socket.off('waiting-for-host');
+      socket.off('join-approved');
+      socket.off('join-denied');
+      socket.off('guest-knocking');
+      socket.off('pending-knocks-updated');
       socket.off('existing-participants');
       socket.off('user-joined');
+      socket.off('webrtc-offer');
+      socket.off('webrtc-answer');
+      socket.off('ice-candidate');
       socket.off('user-media-state-changed');
+      socket.off('user-raised-hand');
       socket.off('new-message');
-      socket.off('transcript-update');
+      socket.off('aura-status');
       socket.off('user-left');
-    };
-  }, [roomCode, myName, user?.avatar]);
+      socket.off('host-media-action');
 
-  // Scroll to bottom on new chat message
+      peerConnectionsRef.current.forEach((pc) => pc.close());
+      peerConnectionsRef.current.clear();
+      remoteStreamsRef.current.clear();
+    };
+  }, [roomCode, createPeerConnection]);
+
+  // Scroll to bottom on new chat messages
   useEffect(() => {
     if (activeDrawer === 'chat' && chatBottomRef.current) {
       chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, activeDrawer]);
+  }, [messages, activeDrawer, isAuraThinking]);
 
-  // Screen Sharing toggle
-  const toggleScreenShare = async () => {
-    if (isScreenSharing) {
-      if (screenStream) {
-        screenStream.getTracks().forEach((track) => track.stop());
-        setScreenStream(null);
+  // --------------------------------------------------------------------------
+  // Host Admission Controls (Admit / Deny Guests)
+  // --------------------------------------------------------------------------
+  const handleAdmitGuest = (guestSocketId) => {
+    if (socketRef.current?.connected) {
+      const guest = pendingGuests.find((g) => g.socketId === guestSocketId);
+      socketRef.current.emit('admit-guest', {
+        roomCode,
+        guestSocketId,
+        displayName: guest?.displayName || '',
+      });
+      setPendingGuests((prev) => prev.filter((g) => g.socketId !== guestSocketId));
+    }
+  };
+
+  const handleDenyGuest = (guestSocketId) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('deny-guest', { roomCode, guestSocketId });
+      setPendingGuests((prev) => prev.filter((g) => g.socketId !== guestSocketId));
+    }
+  };
+
+  const handleAdmitAll = () => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('admit-all-guests', { roomCode });
+      setPendingGuests([]);
+    }
+  };
+
+  const handleHostControlMedia = (targetSocketId, mediaType, action) => {
+    if (!isHost || !socketRef.current?.connected) return;
+    socketRef.current.emit('host-control-media', {
+      roomCode,
+      targetSocketId,
+      mediaType,
+      action,
+    });
+  };
+
+  const handleMuteAll = () => {
+    if (!isHost || !socketRef.current?.connected) return;
+    socketRef.current.emit('host-mute-all', { roomCode });
+    setToastMessage('Muted all participants in the meeting');
+  };
+
+  // --------------------------------------------------------------------------
+  // Camera & Microphone Controls (Seamless toggle & dynamic acquisition)
+  // --------------------------------------------------------------------------
+  const toggleCamera = async () => {
+    const hasVideo = localStream && localStream.getVideoTracks().length > 0;
+    if (hasVideo) {
+      const nextState = !isVideoOn;
+      setIsVideoOn(nextState);
+      localStream.getVideoTracks().forEach((track) => {
+        track.enabled = nextState;
+      });
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('toggle-media-state', {
+          isAudioMuted: !isMicOn,
+          isVideoMuted: !nextState,
+          isScreenSharing,
+        });
       }
-      setIsScreenSharing(false);
     } else {
       try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
-          audio: true,
+          audio: isMicOn,
         });
-        setScreenStream(stream);
-        setIsScreenSharing(true);
-        if (screenVideoRef.current) {
-          screenVideoRef.current.srcObject = stream;
+        localStreamRef.current = stream;
+        setLocalStream(stream);
+        setIsVideoOn(true);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
         }
-
-        stream.getVideoTracks()[0].onended = () => {
-          setIsScreenSharing(false);
-          setScreenStream(null);
-        };
+        peerConnectionsRef.current.forEach((pc) => {
+          stream.getVideoTracks().forEach((track) => {
+            const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+            if (sender) {
+              sender.replaceTrack(track).catch(console.warn);
+            } else {
+              try {
+                pc.addTrack(track, stream);
+              } catch (e) {
+                console.warn(e);
+              }
+            }
+          });
+        });
+        if (socketRef.current?.connected) {
+          socketRef.current.emit('toggle-media-state', {
+            isAudioMuted: !isMicOn,
+            isVideoMuted: false,
+            isScreenSharing,
+          });
+        }
       } catch (err) {
-        console.warn('Screen share canceled or not permitted:', err);
+        console.warn('Could not turn on camera dynamically:', err);
       }
     }
   };
 
-  // Hand raise toggle
+  const toggleMic = async () => {
+    const hasAudio = localStream && localStream.getAudioTracks().length > 0;
+    if (hasAudio) {
+      const nextState = !isMicOn;
+      setIsMicOn(nextState);
+      localStream.getAudioTracks().forEach((track) => {
+        track.enabled = nextState;
+      });
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('toggle-media-state', {
+          isAudioMuted: !nextState,
+          isVideoMuted: !isVideoOn,
+          isScreenSharing,
+        });
+      }
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: isVideoOn,
+          audio: true,
+        });
+        localStreamRef.current = stream;
+        setLocalStream(stream);
+        setIsMicOn(true);
+        peerConnectionsRef.current.forEach((pc) => {
+          stream.getAudioTracks().forEach((track) => {
+            const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'audio');
+            if (sender) {
+              sender.replaceTrack(track).catch(console.warn);
+            } else {
+              try {
+                pc.addTrack(track, stream);
+              } catch (e) {
+                console.warn(e);
+              }
+            }
+          });
+        });
+        if (socketRef.current?.connected) {
+          socketRef.current.emit('toggle-media-state', {
+            isAudioMuted: false,
+            isVideoMuted: !isVideoOn,
+            isScreenSharing,
+          });
+        }
+      } catch (err) {
+        console.warn('Could not turn on mic dynamically:', err);
+      }
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // Screen Sharing
+  // --------------------------------------------------------------------------
+  const stopScreenShare = () => {
+    if (screenStream) {
+      screenStream.getTracks().forEach((track) => track.stop());
+      setScreenStream(null);
+    }
+    setIsScreenSharing(false);
+
+    const localVideoTrack = localStreamRef.current?.getVideoTracks()[0];
+    if (localVideoTrack) {
+      peerConnectionsRef.current.forEach((pc) => {
+        const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+        if (sender) {
+          sender.replaceTrack(localVideoTrack);
+        }
+      });
+    }
+
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('toggle-media-state', { isScreenSharing: false });
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    if (isScreenSharing) {
+      stopScreenShare();
+    } else {
+      try {
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
+
+        setScreenStream(displayStream);
+        setIsScreenSharing(true);
+
+        if (screenVideoRef.current) {
+          screenVideoRef.current.srcObject = displayStream;
+        }
+
+        const screenVideoTrack = displayStream.getVideoTracks()[0];
+
+        peerConnectionsRef.current.forEach((pc) => {
+          const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+          if (sender) {
+            sender.replaceTrack(screenVideoTrack);
+          }
+        });
+
+        if (socketRef.current?.connected) {
+          socketRef.current.emit('toggle-media-state', { isScreenSharing: true });
+        }
+
+        screenVideoTrack.onended = () => {
+          stopScreenShare();
+        };
+      } catch (err) {
+        console.warn('Screen share canceled:', err);
+      }
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // Hand Raise
+  // --------------------------------------------------------------------------
   const toggleRaiseHand = () => {
     const nextState = !isHandRaised;
     setIsHandRaised(nextState);
@@ -333,56 +853,186 @@ export default function MeetingRoomPage() {
     }
   };
 
-  // Send in-call chat message
+  // --------------------------------------------------------------------------
+  // Chat & @Mention Autocomplete (Google Meet style)
+  // --------------------------------------------------------------------------
+  const allMentionCandidates = [
+    {
+      id: 'aura',
+      name: 'Aura AI',
+      handle: 'aura',
+      mentionText: '@aura',
+      isAi: true,
+      description: 'Gemini Copilot',
+    },
+    {
+      id: 'everyone',
+      name: 'Everyone',
+      handle: 'everyone',
+      mentionText: '@everyone',
+      isEveryone: true,
+      description: 'Notify all members',
+    },
+    // Remote participants
+    ...participants.map((p) => ({
+      id: p.socketId,
+      name: p.displayName,
+      handle: p.displayName.replace(/\s+/g, '_').toLowerCase(),
+      mentionText: `@${p.displayName.replace(/\s+/g, '_')}`,
+      role: p.isHost ? 'Host' : 'Guest',
+      avatar: p.avatar,
+    })),
+  ];
+
+  const filteredMentions =
+    mentionQuery !== null
+      ? allMentionCandidates.filter(
+          (c) =>
+            c.name.toLowerCase().includes(mentionQuery) ||
+            c.handle.toLowerCase().includes(mentionQuery)
+        )
+      : [];
+
+  const handleChatInputChange = (e) => {
+    const value = e.target.value;
+    setChatInput(value);
+
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const match = textBeforeCursor.match(/@([a-zA-Z0-9_-]*)$/);
+
+    if (match) {
+      setMentionQuery(match[1].toLowerCase());
+      setMentionSelectedIndex(0);
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  const insertMention = (candidate) => {
+    const input = chatInputRef.current;
+    const cursorPos = input ? input.selectionStart : chatInput.length;
+    const textBeforeCursor = chatInput.slice(0, cursorPos);
+    const textAfterCursor = chatInput.slice(cursorPos);
+    const newBefore = textBeforeCursor.replace(/@([a-zA-Z0-9_-]*)$/, `${candidate.mentionText} `);
+
+    setChatInput(newBefore + textAfterCursor);
+    setMentionQuery(null);
+
+    setTimeout(() => {
+      if (input) {
+        input.focus();
+        const newPos = newBefore.length;
+        input.setSelectionRange(newPos, newPos);
+      }
+    }, 10);
+  };
+
+  const handleChatKeyDown = (e) => {
+    if (mentionQuery !== null && filteredMentions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionSelectedIndex((prev) => (prev + 1) % filteredMentions.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionSelectedIndex((prev) =>
+          (prev - 1 + filteredMentions.length) % filteredMentions.length
+        );
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(filteredMentions[mentionSelectedIndex]);
+      } else if (e.key === 'Escape') {
+        setMentionQuery(null);
+      }
+    }
+  };
+
+  const renderMessageContent = (content) => {
+    if (!content) return null;
+    const regex = /(@[a-zA-Z0-9_-]+)/g;
+    const parts = content.split(regex);
+
+    return parts.map((part, i) => {
+      if (part.startsWith('@')) {
+        const mentionLower = part.toLowerCase();
+        const myHandle = `@${myName.replace(/\s+/g, '_').toLowerCase()}`;
+
+        let chipClass = 'chat-mention-tag';
+        if (mentionLower === '@aura') {
+          chipClass += ' mention-aura';
+        } else if (mentionLower === '@everyone' || mentionLower === '@all') {
+          chipClass += ' mention-everyone';
+        } else if (mentionLower === myHandle) {
+          chipClass += ' mention-me';
+        } else {
+          chipClass += ' mention-user';
+        }
+
+        return (
+          <span
+            key={i}
+            className={chipClass}
+            onClick={() => {
+              setChatInput((prev) => (prev ? `${prev} ${part} ` : `${part} `));
+              if (chatInputRef.current) chatInputRef.current.focus();
+            }}
+            title={`Mention ${part}`}
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
+  // --------------------------------------------------------------------------
+  // Chat & Aura AI Messaging
+  // --------------------------------------------------------------------------
   const handleSendMessage = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!chatInput.trim()) return;
 
     const content = chatInput.trim();
     setChatInput('');
+    setMentionQuery(null);
 
-    // Emit via socket immediately
     if (socketRef.current?.connected) {
-      socketRef.current.emit('send-message', { content });
+      socketRef.current.emit('send-message', {
+        content,
+        apiKey: geminiApiKey,
+        autoReply: auraAutoReply,
+      });
     }
 
-    // Also persist via REST
     try {
       await api.messages.sendMessage(roomCode, {
         content,
         senderName: myName,
       });
     } catch (err) {
-      console.warn('Error saving message via REST:', err);
+      console.warn('Error saving message to REST:', err);
     }
   };
 
-  // Broadcast AI live transcript
-  const handleSendTranscript = async (e) => {
-    e.preventDefault();
-    if (!customTranscriptInput.trim()) return;
-
-    const text = customTranscriptInput.trim();
-    setCustomTranscriptInput('');
-
-    const payload = {
-      speaker: myName,
-      text,
-      confidence: 0.99,
-    };
-
+  const handleTriggerAuraPrompt = (promptText) => {
     if (socketRef.current?.connected) {
-      socketRef.current.emit('live-transcript', payload);
-    }
-
-    try {
-      await api.transcripts.addTranscript(roomCode, payload);
-    } catch (err) {
-      console.warn('Error saving transcript:', err);
+      socketRef.current.emit('send-message', {
+        content: promptText,
+        apiKey: geminiApiKey,
+        autoReply: true,
+      });
     }
   };
 
-  // Copy meeting link
+  const handleSaveGeminiKey = (e) => {
+    e.preventDefault();
+    const cleanKey = tempKeyInput.trim();
+    setGeminiApiKey(cleanKey);
+    localStorage.setItem('aura_gemini_api_key', cleanKey);
+    setShowKeyModal(false);
+  };
+
   const handleCopyLink = () => {
     const url = `${window.location.origin}/meet/${roomCode}`;
     navigator.clipboard.writeText(url);
@@ -390,7 +1040,6 @@ export default function MeetingRoomPage() {
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  // Leave Call
   const handleLeaveCall = () => {
     if (localStream) {
       localStream.getTracks().forEach((track) => track.stop());
@@ -398,482 +1047,158 @@ export default function MeetingRoomPage() {
     if (screenStream) {
       screenStream.getTracks().forEach((track) => track.stop());
     }
+    peerConnectionsRef.current.forEach((pc) => pc.close());
+    peerConnectionsRef.current.clear();
     navigate('/');
   };
+
+  const totalParticipants = participants.length + 1; // You + real peers
 
   return (
     <div className="page-wrapper meeting-room-container">
       <div className="ambient-cosmos" />
 
-      {/* ====================================================================
-          1. TOP APP BAR
-          ==================================================================== */}
-      <header className="meeting-topbar">
-        <div className="meeting-topbar-left">
-          <div className="brand-icon" style={{ width: 28, height: 28 }}>
-            <Video size={16} />
-          </div>
-          <div className="meeting-title-box">
-            <h1 className="meeting-header-title">{roomInfo?.title || 'AURA Meeting'}</h1>
-            <span className="meeting-code-badge">#{roomCode}</span>
-          </div>
+      {/* 1. TOP APP BAR */}
+      <MeetingTopBar
+        roomInfo={roomInfo}
+        roomCode={roomCode}
+        isHost={isHost}
+        copiedLink={copiedLink}
+        handleCopyLink={handleCopyLink}
+        callDuration={callDuration}
+        formatTimer={formatTimer}
+      />
 
-          <button
-            className="copy-pill-btn"
-            style={{ marginLeft: 8 }}
-            onClick={handleCopyLink}
-            title="Copy Meeting Link"
-          >
-            {copiedLink ? <Check size={13} /> : <Copy size={13} />}
-            <span>{copiedLink ? 'Copied' : 'Share'}</span>
-          </button>
-        </div>
+      {/* FLOATING HOST ADMISSION ALERT (When guests are knocking) */}
+      <HostKnockBanner
+        pendingGuests={pendingGuests}
+        handleAdmitGuest={handleAdmitGuest}
+        handleAdmitAll={handleAdmitAll}
+      />
 
-        <div className="meeting-topbar-center">
-          <div className="duration-pill-badge">
-            <span className="rec-indicator-dot" />
-            <span className="timer-text">{formatTimer(callDuration)}</span>
-          </div>
-        </div>
+      {/* 2. MAIN VIDEO GRID STAGE */}
+      <VideoGridStage
+        isScreenSharing={isScreenSharing}
+        screenVideoRef={screenVideoRef}
+        localVideoRef={localVideoRef}
+        localStream={localStream}
+        isVideoOn={isVideoOn}
+        isMicOn={isMicOn}
+        myName={myName}
+        isHost={isHost}
+        isHandRaised={isHandRaised}
+        totalParticipants={totalParticipants}
+        participants={participants}
+        remoteStreams={remoteStreams}
+        raisedHands={raisedHands}
+        onControlMedia={handleHostControlMedia}
+      />
 
-        <div className="meeting-topbar-right">
-          <div className="security-verified-tag">
-            <ShieldCheck size={14} color="#10b981" />
-            <span>E2E Verified</span>
-          </div>
+      {/* 3. FLOATING MEETING CONTROLS DOCK */}
+      <MeetingDock
+        isMicOn={isMicOn}
+        toggleMic={toggleMic}
+        isVideoOn={isVideoOn}
+        toggleCamera={toggleCamera}
+        isScreenSharing={isScreenSharing}
+        toggleScreenShare={toggleScreenShare}
+        isHandRaised={isHandRaised}
+        toggleRaiseHand={toggleRaiseHand}
+        activeDrawer={activeDrawer}
+        setActiveDrawer={setActiveDrawer}
+        totalParticipants={totalParticipants}
+        unreadChatCount={unreadChatCount}
+        setUnreadChatCount={setUnreadChatCount}
+        handleLeaveCall={handleLeaveCall}
+      />
 
-          <div className="spec-tag-pill">
-            <Sparkles size={13} color="#c084fc" />
-            <span>4K 60fps Mesh</span>
-          </div>
-        </div>
-      </header>
-
-      {/* ====================================================================
-          2. MAIN VIDEO GRID STAGE
-          ==================================================================== */}
-      <main className="meeting-stage-viewport">
-        <div
-          className={`video-tiles-grid ${
-            isScreenSharing ? 'has-screen-share' : `tiles-count-${participants.length + 1}`
-          }`}
-        >
-          {/* Screen Share Stage (if active) */}
-          {isScreenSharing && (
-            <div className="video-tile-card screen-share-card">
-              <video
-                ref={screenVideoRef}
-                autoPlay
-                playsInline
-                className="tile-video-feed"
-              />
-              <div className="tile-user-tag">
-                <Monitor size={14} />
-                <span>{myName} is presenting</span>
-              </div>
-            </div>
-          )}
-
-          {/* Local User Tile */}
-          <div
-            className={`video-tile-card ${isMicOn ? 'active-speaker-ring' : ''} ${
-              !isVideoOn ? 'video-off-card' : ''
-            }`}
-          >
-            {isVideoOn && localStream ? (
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="tile-video-feed mirror-mode"
-              />
-            ) : (
-              <div className="tile-avatar-view">
-                <div className="tile-initial-avatar">
-                  {myName.charAt(0).toUpperCase()}
-                </div>
-              </div>
-            )}
-
-            {/* Hand Raised Icon */}
-            {isHandRaised && (
-              <div className="hand-raised-badge">
-                <Hand size={16} />
-              </div>
-            )}
-
-            {/* Overlay User Tag */}
-            <div className="tile-user-tag">
-              <span className="user-name-text">{myName} (You)</span>
-              <div className="tile-media-indicators">
-                {!isMicOn ? (
-                  <span className="indicator-icon muted" title="Muted">
-                    <MicOff size={13} />
-                  </span>
-                ) : (
-                  <span className="indicator-icon active" title="Mic active">
-                    <Mic size={13} />
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Remote Participants Tiles */}
-          {participants.map((peer, idx) => (
-            <div
-              key={peer.id || peer.socketId || idx}
-              className={`video-tile-card ${
-                peer.activeSpeaker ? 'active-speaker-ring' : ''
-              }`}
-            >
-              <div className="tile-avatar-view">
-                {peer.avatar ? (
-                  <img
-                    src={peer.avatar}
-                    alt={peer.displayName}
-                    className="tile-peer-img"
-                  />
-                ) : (
-                  <div className="tile-initial-avatar">
-                    {(peer.displayName || 'P').charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </div>
-
-              {peer.activeSpeaker && (
-                <div className="audio-wave-badge">
-                  <Volume2 size={13} color="#10b981" />
-                  <span>Speaking</span>
-                </div>
-              )}
-
-              <div className="tile-user-tag">
-                <span className="user-name-text">{peer.displayName}</span>
-                {peer.role && <span className="peer-role-badge">{peer.role}</span>}
-                <div className="tile-media-indicators">
-                  {peer.isAudioMuted ? (
-                    <span className="indicator-icon muted">
-                      <MicOff size={13} />
-                    </span>
-                  ) : (
-                    <span className="indicator-icon active">
-                      <Mic size={13} />
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Live Subtitle CC Caption Bar */}
-        {showCaptions && liveCaptionText && (
-          <div className="live-caption-overlay-bar">
-            <div className="cc-sparkle-icon">
-              <Sparkles size={14} color="#8b5cf6" />
-            </div>
-            <p className="caption-text-content">{liveCaptionText}</p>
-          </div>
-        )}
-      </main>
-
-      {/* ====================================================================
-          3. FLOATING MEETING CONTROLS DOCK
-          ==================================================================== */}
-      <footer className="meeting-dock-bar">
-        <div className="dock-controls-group">
-          {/* Microphone */}
-          <button
-            className={`dock-circle-btn ${!isMicOn ? 'btn-danger' : 'btn-active'}`}
-            onClick={() => setIsMicOn(!isMicOn)}
-            title={isMicOn ? 'Mute Mic (Ctrl+D)' : 'Unmute Mic (Ctrl+D)'}
-          >
-            {isMicOn ? <Mic size={20} /> : <MicOff size={20} />}
-          </button>
-
-          {/* Camera */}
-          <button
-            className={`dock-circle-btn ${!isVideoOn ? 'btn-danger' : 'btn-active'}`}
-            onClick={() => setIsVideoOn(!isVideoOn)}
-            title={isVideoOn ? 'Turn Off Camera (Ctrl+E)' : 'Turn On Camera (Ctrl+E)'}
-          >
-            {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
-          </button>
-
-          {/* Screen Share */}
-          <button
-            className={`dock-circle-btn ${isScreenSharing ? 'btn-highlight' : ''}`}
-            onClick={toggleScreenShare}
-            title={isScreenSharing ? 'Stop Screen Share' : 'Share Screen'}
-          >
-            <Monitor size={20} />
-          </button>
-
-          {/* Raise Hand */}
-          <button
-            className={`dock-circle-btn ${isHandRaised ? 'btn-highlight' : ''}`}
-            onClick={toggleRaiseHand}
-            title="Raise Hand"
-          >
-            <Hand size={20} />
-          </button>
-
-          {/* Live Captions Toggle */}
-          <button
-            className={`dock-circle-btn ${showCaptions ? 'btn-highlight' : ''}`}
-            onClick={() => setShowCaptions(!showCaptions)}
-            title="Toggle Live AI Captions"
-          >
-            <Subtitles size={20} />
-          </button>
-
-          <div className="dock-separator" />
-
-          {/* Participants Drawer Toggle */}
-          <button
-            className={`dock-circle-btn ${
-              activeDrawer === 'participants' ? 'btn-highlight' : ''
-            }`}
-            onClick={() =>
-              setActiveDrawer(activeDrawer === 'participants' ? null : 'participants')
-            }
-            title="Participants"
-          >
-            <Users size={20} />
-            <span className="dock-badge-count">{participants.length + 1}</span>
-          </button>
-
-          {/* Chat Drawer Toggle */}
-          <button
-            className={`dock-circle-btn ${
-              activeDrawer === 'chat' ? 'btn-highlight' : ''
-            }`}
-            onClick={() => {
-              setActiveDrawer(activeDrawer === 'chat' ? null : 'chat');
-              setUnreadChatCount(0);
-            }}
-            title="In-Call Chat"
-          >
-            <MessageSquare size={20} />
-            {unreadChatCount > 0 && (
-              <span className="dock-badge-unread">{unreadChatCount}</span>
-            )}
-          </button>
-
-          {/* Transcripts Drawer Toggle */}
-          <button
-            className={`dock-circle-btn ${
-              activeDrawer === 'transcripts' ? 'btn-highlight' : ''
-            }`}
-            onClick={() =>
-              setActiveDrawer(activeDrawer === 'transcripts' ? null : 'transcripts')
-            }
-            title="AI Live Transcripts & Notes"
-          >
-            <Sparkles size={20} />
-          </button>
-
-          {/* Leave / End Call */}
-          <button
-            className="dock-end-call-btn"
-            onClick={handleLeaveCall}
-            title="Leave Meeting"
-          >
-            <PhoneOff size={20} />
-            <span>Leave</span>
-          </button>
-        </div>
-      </footer>
-
-      {/* ====================================================================
-          4. SIDE DRAWERS (CHAT / PARTICIPANTS / TRANSCRIPTS)
-          ==================================================================== */}
+      {/* 4. SIDE DRAWERS */}
       {activeDrawer && (
-        <aside className="meeting-slide-drawer">
+        <aside className="meeting-side-drawer">
           <div className="drawer-header">
             <h3 className="drawer-title">
-              {activeDrawer === 'chat' && 'In-Call Chat'}
-              {activeDrawer === 'participants' && `Participants (${participants.length + 1})`}
-              {activeDrawer === 'transcripts' && 'Live AI Transcripts'}
+              {activeDrawer === 'chat' && 'In-Call Messages & Aura AI'}
+              {activeDrawer === 'participants' && `People (${totalParticipants})`}
             </h3>
             <button
-              className="modal-close-btn"
+              className="drawer-close-btn"
               onClick={() => setActiveDrawer(null)}
-              title="Close drawer"
+              title="Close panel"
             >
               <X size={18} />
             </button>
           </div>
 
-          {/* --- CHAT DRAWER CONTENT --- */}
+          {/* Chat Drawer */}
           {activeDrawer === 'chat' && (
-            <div className="drawer-body chat-drawer-body">
-              <div className="chat-messages-container">
-                {messages.length === 0 ? (
-                  <div className="drawer-empty-state">
-                    <MessageSquare size={32} opacity={0.3} />
-                    <p>No messages yet. Say hello to everyone!</p>
-                  </div>
-                ) : (
-                  messages.map((msg, i) => (
-                    <div
-                      key={msg._id || i}
-                      className={`chat-message-bubble ${
-                        msg.senderName === myName ? 'my-message' : ''
-                      }`}
-                    >
-                      <div className="chat-message-meta">
-                        <span className="chat-sender-name">{msg.senderName}</span>
-                        <span className="chat-time">
-                          {msg.createdAt
-                            ? new Date(msg.createdAt).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : 'now'}
-                        </span>
-                      </div>
-                      <p className="chat-message-text">{msg.content}</p>
-                    </div>
-                  ))
-                )}
-                <div ref={chatBottomRef} />
-              </div>
-
-              <form onSubmit={handleSendMessage} className="chat-input-form">
-                <input
-                  type="text"
-                  placeholder="Send a message to everyone..."
-                  className="chat-text-input"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  disabled={!chatInput.trim()}
-                  className="chat-send-btn"
-                >
-                  <Send size={16} />
-                </button>
-              </form>
-            </div>
+            <ChatDrawer
+              geminiApiKey={geminiApiKey}
+              setShowKeyModal={setShowKeyModal}
+              auraAutoReply={auraAutoReply}
+              setAuraAutoReply={setAuraAutoReply}
+              handleTriggerAuraPrompt={handleTriggerAuraPrompt}
+              messages={messages}
+              myName={myName}
+              isAuraThinking={isAuraThinking}
+              chatBottomRef={chatBottomRef}
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              chatInputRef={chatInputRef}
+              handleChatInputChange={handleChatInputChange}
+              handleChatKeyDown={handleChatKeyDown}
+              insertMention={insertMention}
+              mentionQuery={mentionQuery}
+              setMentionQuery={setMentionQuery}
+              filteredMentions={filteredMentions}
+              mentionSelectedIndex={mentionSelectedIndex}
+              handleSendMessage={handleSendMessage}
+              renderMessageContent={renderMessageContent}
+            />
           )}
 
-          {/* --- PARTICIPANTS DRAWER CONTENT --- */}
+          {/* Participants Drawer */}
           {activeDrawer === 'participants' && (
-            <div className="drawer-body">
-              <div className="participants-list-view">
-                {/* Local user entry */}
-                <div className="participant-roster-item me-item">
-                  <div className="participant-info-group">
-                    <div className="roster-avatar-dot">
-                      {myName.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <span className="roster-name">{myName} (You)</span>
-                      <span className="roster-role-tag">Host</span>
-                    </div>
-                  </div>
-                  <div className="roster-controls-state">
-                    {isMicOn ? (
-                      <Mic size={15} color="#10b981" />
-                    ) : (
-                      <MicOff size={15} color="#ef4444" />
-                    )}
-                    {isVideoOn ? (
-                      <Video size={15} color="#10b981" />
-                    ) : (
-                      <VideoOff size={15} color="#ef4444" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Remote peers */}
-                {participants.map((peer, idx) => (
-                  <div key={peer.id || peer.socketId || idx} className="participant-roster-item">
-                    <div className="participant-info-group">
-                      {peer.avatar ? (
-                        <img
-                          src={peer.avatar}
-                          alt={peer.displayName}
-                          className="roster-avatar-img"
-                        />
-                      ) : (
-                        <div className="roster-avatar-dot">
-                          {(peer.displayName || 'P').charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div>
-                        <span className="roster-name">{peer.displayName}</span>
-                        <span className="roster-role-tag">{peer.role || 'Member'}</span>
-                      </div>
-                    </div>
-                    <div className="roster-controls-state">
-                      {peer.isAudioMuted ? (
-                        <MicOff size={15} color="#ef4444" />
-                      ) : (
-                        <Mic size={15} color="#10b981" />
-                      )}
-                      {peer.isVideoMuted ? (
-                        <VideoOff size={15} color="#ef4444" />
-                      ) : (
-                        <Video size={15} color="#10b981" />
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* --- TRANSCRIPTS DRAWER CONTENT --- */}
-          {activeDrawer === 'transcripts' && (
-            <div className="drawer-body transcripts-drawer-body">
-              <div className="transcripts-log-container">
-                {transcriptsList.length === 0 ? (
-                  <div className="drawer-empty-state">
-                    <Sparkles size={32} opacity={0.3} />
-                    <p>AI speech-to-text will automatically record discussion points here.</p>
-                  </div>
-                ) : (
-                  transcriptsList.map((t, idx) => (
-                    <div key={t._id || idx} className="transcript-log-item">
-                      <div className="transcript-speaker-tag">
-                        <span className="speaker-name">{t.speaker}</span>
-                        <span className="confidence-pill">
-                          {Math.round((t.confidence || 0.98) * 100)}% accurate
-                        </span>
-                      </div>
-                      <p className="transcript-content-text">"{t.text}"</p>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Add live note / transcript simulation input */}
-              <form onSubmit={handleSendTranscript} className="chat-input-form">
-                <input
-                  type="text"
-                  placeholder="Record note / transcript..."
-                  className="chat-text-input"
-                  value={customTranscriptInput}
-                  onChange={(e) => setCustomTranscriptInput(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  disabled={!customTranscriptInput.trim()}
-                  className="chat-send-btn"
-                  title="Broadcast caption"
-                >
-                  <Sparkles size={16} />
-                </button>
-              </form>
-            </div>
+            <ParticipantsDrawer
+              isHost={isHost}
+              pendingGuests={pendingGuests}
+              handleDenyGuest={handleDenyGuest}
+              handleAdmitGuest={handleAdmitGuest}
+              handleAdmitAll={handleAdmitAll}
+              totalParticipants={totalParticipants}
+              participants={participants}
+              handleMuteAll={handleMuteAll}
+              handleHostControlMedia={handleHostControlMedia}
+              myName={myName}
+              isMicOn={isMicOn}
+              isVideoOn={isVideoOn}
+            />
           )}
         </aside>
       )}
+
+      {/* Waiting For Admission Modal */}
+      <WaitingApprovalModal
+        waitingForAdmission={waitingForAdmission}
+        handleLeaveCall={handleLeaveCall}
+      />
+
+      {/* Admission Denied Modal */}
+      <AdmissionDeniedModal
+        admissionDenied={admissionDenied}
+        onReturnHome={() => navigate('/')}
+      />
+
+      {/* Gemini API Key Modal */}
+      <GeminiKeyModal
+        showKeyModal={showKeyModal}
+        setShowKeyModal={setShowKeyModal}
+        tempKeyInput={tempKeyInput}
+        setTempKeyInput={setTempKeyInput}
+        handleSaveGeminiKey={handleSaveGeminiKey}
+      />
+
+      {/* Floating Notification Toast */}
+      <FloatingToast toastMessage={toastMessage} />
     </div>
   );
 }

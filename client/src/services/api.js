@@ -63,7 +63,7 @@ export const api = {
         body: JSON.stringify(roomData),
       }),
     getRoom: (roomCode) => request(`/rooms/${roomCode}`),
-    getUserRooms: () => request('/rooms'),
+    getUserRooms: (params = '') => request(`/rooms${params ? `?${params}` : ''}`),
     updateRoom: (roomCode, settings) =>
       request(`/rooms/${roomCode}`, {
         method: 'PATCH',
@@ -72,6 +72,10 @@ export const api = {
     endRoom: (roomCode) =>
       request(`/rooms/${roomCode}/end`, {
         method: 'POST',
+      }),
+    deleteRoom: (roomCode) =>
+      request(`/rooms/${roomCode}`, {
+        method: 'DELETE',
       }),
   },
 
@@ -102,6 +106,15 @@ export const api = {
       request(`/rooms/${roomCode}/messages`, {
         method: 'POST',
         body: JSON.stringify(messageData),
+      }),
+  },
+
+  // Aura AI Assistant
+  ai: {
+    askAura: (roomCode, data) =>
+      request(`/rooms/${roomCode}/ai-chat`, {
+        method: 'POST',
+        body: JSON.stringify(data),
       }),
   },
 

@@ -1,22 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Video,
-  VideoOff,
-  Mic,
-  MicOff,
-  Copy,
-  Check,
-  Shield,
-  ArrowRight,
-  ArrowLeft,
-  Users,
-  AlertCircle,
-  Sparkles,
-  Settings,
-} from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { connectSocket } from '../services/socket';
+import LobbyHeader from '../components/lobby/LobbyHeader';
+import LobbyVideoPreview from '../components/lobby/LobbyVideoPreview';
+import LobbyJoinCard from '../components/lobby/LobbyJoinCard';
 
 export default function LobbyPage() {
   const { roomCode } = useParams();
@@ -31,10 +20,13 @@ export default function LobbyPage() {
   const [roomData, setRoomData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
+  const [waitingForApproval, setWaitingForApproval] = useState(false);
+  const [deniedMessage, setDeniedMessage] = useState('');
   const [error, setError] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
 
   const videoRef = useRef(null);
+  const socketRef = useRef(null);
 
   // Fetch room details from backend
   useEffect(() => {
@@ -49,7 +41,6 @@ export default function LobbyPage() {
           }
         }
       } catch (err) {
-        // If room does not exist yet, prompt to create it or show error
         setError(err.message || 'Meeting room not found');
       } finally {
         setLoading(false);
@@ -77,7 +68,7 @@ export default function LobbyPage() {
           videoRef.current.srcObject = localStream;
         }
       } catch (err) {
-        console.warn('Camera/Mic permission not granted or unavailable:', err);
+        console.warn('Camera/Mic permission not granted:', err);
         setCameraError(true);
       }
     };
@@ -111,6 +102,11 @@ export default function LobbyPage() {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
+      if (socketRef.current) {
+        socketRef.current.off('join-approved');
+        socketRef.current.off('waiting-for-host');
+        socketRef.current.off('join-denied');
+      }
     };
   }, [stream]);
 
@@ -129,32 +125,55 @@ export default function LobbyPage() {
     }
 
     setJoining(true);
-    try {
-      // Register participant in backend
-      await api.participants.joinRoom(roomCode, {
-        displayName: finalName,
-        isAudioMuted: !isMicOn,
-        isVideoMuted: !isVideoOn,
-      });
+    setDeniedMessage('');
 
-      // Pass state into meeting room
+    // Connect socket for real-time host admission flow
+    const socket = connectSocket();
+    socketRef.current = socket;
+
+    // Clean up previous listeners
+    socket.off('join-approved');
+    socket.off('waiting-for-host');
+    socket.off('join-denied');
+
+    // Host admitted or this user is first/host
+    socket.on('join-approved', ({ isHost }) => {
+      setJoining(false);
+      setWaitingForApproval(false);
+
       navigate(`/meet/${roomCode}`, {
         state: {
           initialAudio: isMicOn,
           initialVideo: isVideoOn,
           participantName: finalName,
+          isHost,
         },
       });
-    } catch (err) {
-      // If room was not found, allow creating on the fly or display error
-      if (err.message.includes('not found')) {
-        navigate(`/meet/${roomCode}`);
-      } else {
-        alert(err.message || 'Could not join room');
-      }
-    } finally {
+    });
+
+    // Host must approve first
+    socket.on('waiting-for-host', () => {
       setJoining(false);
-    }
+      setWaitingForApproval(true);
+    });
+
+    // Host denied request
+    socket.on('join-denied', ({ message }) => {
+      setJoining(false);
+      setWaitingForApproval(false);
+      setDeniedMessage(message || 'The meeting host has denied your request to join.');
+    });
+
+    // Send knock to host
+    socket.emit('request-to-join', {
+      roomCode,
+      user: {
+        displayName: finalName,
+        avatar: user?.avatar || '',
+        isAudioMuted: !isMicOn,
+        isVideoMuted: !isVideoOn,
+      },
+    });
   };
 
   return (
@@ -162,147 +181,39 @@ export default function LobbyPage() {
       <div className="ambient-cosmos" />
 
       {/* Lobby Header */}
-      <header className="lobby-topbar">
-        <button className="back-link-btn" onClick={() => navigate('/')}>
-          <ArrowLeft size={16} />
-          <span>Return Home</span>
-        </button>
-        <div className="lobby-brand-tag">
-          <div className="brand-icon" style={{ width: 24, height: 24 }}>
-            <Video size={14} />
-          </div>
-          <span>AURA.MEET PRE-FLIGHT</span>
-        </div>
-      </header>
+      <LobbyHeader onReturnHome={() => navigate('/')} />
 
       <main className="lobby-content-grid">
         {/* Left Column: Camera Stage & Media Controls */}
-        <div className="lobby-camera-panel">
-          <div className="lobby-video-wrapper">
-            {isVideoOn && !cameraError ? (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="lobby-video-feed"
-              />
-            ) : (
-              <div className="lobby-video-placeholder">
-                <div className="avatar-pulse-circle">
-                  <span className="avatar-initials">
-                    {(inputName || 'G').charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <p className="placeholder-text">
-                  {cameraError ? 'Camera access not available' : 'Camera is turned off'}
-                </p>
-              </div>
-            )}
+        <LobbyVideoPreview
+          videoRef={videoRef}
+          isVideoOn={isVideoOn}
+          isMicOn={isMicOn}
+          cameraError={cameraError}
+          displayName={inputName}
+          onToggleMic={() => setIsMicOn(!isMicOn)}
+          onToggleVideo={() => setIsVideoOn(!isVideoOn)}
+        />
 
-            {/* In-Preview Badges */}
-            <div className="preview-top-badges">
-              <span className="preview-badge live-indicator">
-                <span className="green-dot" />
-                Preview Ready
-              </span>
-              <span className="preview-badge">1080p Studio Mesh</span>
-            </div>
-
-            {/* Float Controls on Preview */}
-            <div className="preview-overlay-dock">
-              <button
-                className={`control-circle-btn ${!isMicOn ? 'muted' : ''}`}
-                onClick={() => setIsMicOn(!isMicOn)}
-                title={isMicOn ? 'Mute microphone' : 'Unmute microphone'}
-              >
-                {isMicOn ? <Mic size={20} /> : <MicOff size={20} />}
-              </button>
-
-              <button
-                className={`control-circle-btn ${!isVideoOn ? 'muted' : ''}`}
-                onClick={() => setIsVideoOn(!isVideoOn)}
-                title={isVideoOn ? 'Turn camera off' : 'Turn camera on'}
-              >
-                {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
-              </button>
-            </div>
-          </div>
-
-          <div className="media-status-notice">
-            <span>Audio & video are ready. You can still toggle anytime during the call.</span>
-          </div>
-        </div>
-
-        {/* Right Column: Meeting Info & Join Box */}
-        <div className="lobby-join-panel">
-          <div className="lobby-card-glass">
-            <div className="join-badge">
-              <Sparkles size={13} />
-              <span>AURA Meeting Room</span>
-            </div>
-
-            <h2 className="lobby-room-title">
-              {roomData?.title || `Room #${roomCode}`}
-            </h2>
-
-            <p className="lobby-room-desc">
-              {roomData?.description ||
-                `You are about to enter end-to-end encrypted room #${roomCode}. Review your display name before entering.`}
-            </p>
-
-            {error ? (
-              <div className="auth-error-banner" style={{ margin: '14px 0' }}>
-                <AlertCircle size={16} />
-                <span>{error}</span>
-              </div>
-            ) : null}
-
-            <form onSubmit={handleJoin} className="lobby-join-form">
-              <div className="form-group" style={{ marginBottom: 18 }}>
-                <label className="form-label">What's your name?</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Enter your name"
-                  className="auth-input"
-                  value={inputName}
-                  onChange={(e) => setInputName(e.target.value)}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={joining || (roomData && roomData.status === 'ended')}
-                className="btn-pill-primary join-meeting-main-btn"
-              >
-                <span>{joining ? 'Entering...' : 'Join Meeting Now'}</span>
-                <ArrowRight size={18} />
-              </button>
-            </form>
-
-            {/* Meeting link copy box */}
-            <div className="modal-link-box" style={{ marginTop: 20 }}>
-              <span className="code-text">{window.location.origin}/meet/{roomCode}</span>
-              <button className="copy-pill-btn" onClick={handleCopyLink}>
-                {copiedLink ? <Check size={14} /> : <Copy size={14} />}
-                <span>{copiedLink ? 'Copied' : 'Copy'}</span>
-              </button>
-            </div>
-
-            {/* Room security specs */}
-            <div className="room-meta-specs">
-              <div className="spec-meta-item">
-                <Shield size={14} color="#10b981" />
-                <span>AES-256 E2E Encrypted</span>
-              </div>
-              <div className="spec-meta-item">
-                <Users size={14} color="#8b5cf6" />
-                <span>Sub-40ms Mesh Latency</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Right Column: Meeting Info & Host Approval Box */}
+        <LobbyJoinCard
+          roomCode={roomCode}
+          roomData={roomData}
+          error={error}
+          inputName={inputName}
+          setInputName={setInputName}
+          joining={joining}
+          waitingForApproval={waitingForApproval}
+          deniedMessage={deniedMessage}
+          onJoin={handleJoin}
+          onCancelRequest={() => {
+            setWaitingForApproval(false);
+            setJoining(false);
+          }}
+          onResetDenied={() => setDeniedMessage('')}
+          copiedLink={copiedLink}
+          onCopyLink={handleCopyLink}
+        />
       </main>
     </div>
   );

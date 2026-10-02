@@ -99,8 +99,32 @@ export const getRoomByCode = async (req, res, next) => {
  */
 export const listUserRooms = async (req, res, next) => {
   try {
-    const rooms = await Room.find({ host: req.user._id }).sort({ createdAt: -1 });
-    return sendSuccess(res, 'User meeting rooms retrieved', { count: rooms.length, rooms });
+    let query = {};
+    if (req.user) {
+      query = { $or: [{ host: req.user._id }, { hostName: req.user.name }] };
+    } else if (req.query.hostName) {
+      query = { hostName: req.query.hostName };
+    }
+    const rooms = await Room.find(query).sort({ scheduledFor: 1, createdAt: -1 }).limit(50);
+    return sendSuccess(res, 'Meeting rooms retrieved', { count: rooms.length, rooms });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Delete a meeting room
+ * @route   DELETE /api/rooms/:roomCode
+ * @access  Public / Optional Auth
+ */
+export const deleteRoom = async (req, res, next) => {
+  try {
+    const roomCode = normalizeRoomCode(req.params.roomCode);
+    const room = await Room.findOneAndDelete({ roomCode });
+    if (!room) {
+      return sendError(res, `Meeting room '${roomCode}' not found`, 404);
+    }
+    return sendSuccess(res, 'Meeting deleted successfully');
   } catch (error) {
     next(error);
   }

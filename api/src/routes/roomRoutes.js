@@ -5,6 +5,7 @@ import {
   listUserRooms,
   updateRoom,
   endRoom,
+  deleteRoom,
 } from '../controllers/roomController.js';
 import {
   getRoomParticipants,
@@ -20,16 +21,18 @@ import {
   getTranscripts,
   addTranscript,
 } from '../controllers/transcriptController.js';
+import { askAuraAi } from '../controllers/aiController.js';
 import { protect, optionalAuth } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
 // --- Room Endpoints ---
 router.post('/', optionalAuth, createRoom);
-router.get('/', protect, listUserRooms);
+router.get('/', optionalAuth, listUserRooms);
 router.get('/:roomCode', getRoomByCode);
 router.patch('/:roomCode', optionalAuth, updateRoom);
 router.post('/:roomCode/end', optionalAuth, endRoom);
+router.delete('/:roomCode', optionalAuth, deleteRoom);
 
 // --- Participant Endpoints ---
 router.get('/:roomCode/participants', getRoomParticipants);
@@ -40,6 +43,9 @@ router.post('/:roomCode/participants/:participantId/leave', leaveParticipant);
 // --- Messages / Chat Endpoints ---
 router.get('/:roomCode/messages', getRoomMessages);
 router.post('/:roomCode/messages', optionalAuth, sendRoomMessage);
+
+// --- Aura AI Endpoint ---
+router.post('/:roomCode/ai-chat', optionalAuth, askAuraAi);
 
 // --- Live Transcript Endpoints ---
 router.get('/:roomCode/transcripts', getTranscripts);
