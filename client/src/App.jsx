@@ -10,12 +10,12 @@ import ProfilePage from './pages/ProfilePage';
 import MeetingEndedPage from './pages/MeetingEndedPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
-import './App.css';
-import './Auth.css';
-import './Meeting.css';
-import './Dashboard.css';
-import './Profile.css';
-import './MeetingEnded.css';
+import './styles/App.css';
+import './styles/Auth.css';
+import './styles/Meeting.css';
+import './styles/Dashboard.css';
+import './styles/Profile.css';
+import './styles/MeetingEnded.css';
 
 // Wrapper for LandingPage so onNavigate works with React Router
 function LandingWrapper() {

@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 import { api } from '../services/api';
 import { connectSocket } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
-import '../Meeting.css';
+import '../styles/Meeting.css';
 
 // Modular Meeting Components
 import MeetingTopBar from '../components/meeting/MeetingTopBar';

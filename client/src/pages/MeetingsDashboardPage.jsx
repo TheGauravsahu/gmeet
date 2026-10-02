@@ -12,7 +12,7 @@ import DashboardFilterBar from '../components/dashboard/DashboardFilterBar';
 import MeetingCard from '../components/dashboard/MeetingCard';
 import DashboardEmptyState from '../components/dashboard/DashboardEmptyState';
 import { MeetingForLaterModal, SafetyModal } from '../components/dashboard/DashboardModals';
-import '../Dashboard.css';
+import '../styles/Dashboard.css';
 
 export default function MeetingsDashboardPage() {
   const navigate = useNavigate();

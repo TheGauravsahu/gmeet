@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import '../MeetingEnded.css';
+import '../styles/MeetingEnded.css';
 
 export default function MeetingEndedPage() {
   const navigate = useNavigate();

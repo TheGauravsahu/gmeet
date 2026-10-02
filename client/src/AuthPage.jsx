@@ -4,7 +4,7 @@ import { useAuth } from './context/AuthContext';
 import AuthHeader from './components/auth/AuthHeader';
 import AuthCard from './components/auth/AuthCard';
 import AuthSecurityStrip from './components/auth/AuthSecurityStrip';
-import './Auth.css';
+import './styles/Auth.css';
 
 export default function AuthPage({ initialMode = 'signin', onNavigate }) {
   const isSignIn = initialMode === 'signin' || initialMode === 'login';
