@@ -563,7 +563,7 @@ export const setupMeetingSocket = (io) => {
     /**
      * In-Call Chat Message + Aura AI (Gemini)
      */
-    socket.on('send-message', async ({ content, apiKey, autoReply }) => {
+    socket.on('send-message', async ({ content } = {}) => {
       const reg = socketRegistry.get(socket.id);
       if (!reg || !content || !content.trim()) return;
 
@@ -596,11 +596,7 @@ export const setupMeetingSocket = (io) => {
         logger.error(`Error persisting message: ${err.message}`);
       }
 
-      // Check if Aura AI should reply: only if specifically mentioned or if it's a question with autoReply enabled
-      const lower = trimmedContent.toLowerCase();
-      const mentionsAura = lower.includes('@aura') || lower.includes('aura') || lower.startsWith('/ai');
-      const isQuestion = trimmedContent.endsWith('?') || lower.startsWith('how') || lower.startsWith('what') || lower.startsWith('why') || lower.startsWith('can you') || lower.startsWith('who');
-      const shouldAiReply = mentionsAura || (autoReply && isQuestion && mentionsAura);
+      const shouldAiReply = /(?:^|[^a-z0-9_])@aura\b/i.test(trimmedContent);
 
       if (shouldAiReply) {
         try {
@@ -618,8 +614,6 @@ export const setupMeetingSocket = (io) => {
           const aiReplyText = await generateGeminiReply({
             prompt: trimmedContent,
             history: recentMessages,
-            apiKey,
-            roomCode: reg.roomCode,
             senderName: reg.displayName,
           });
 
@@ -647,6 +641,9 @@ export const setupMeetingSocket = (io) => {
           }
         } catch (aiErr) {
           logger.error(`Aura AI Error: ${aiErr.message}`);
+          io.to(reg.roomCode).emit('aura-error', {
+            message: aiErr.message || 'Aura AI could not complete that request.',
+          });
           io.to(reg.roomCode).emit('aura-status', { isThinking: false });
         }
       }
@@ -655,7 +652,7 @@ export const setupMeetingSocket = (io) => {
     /**
      * Dedicated Direct Aura AI Query Event
      */
-    socket.on('aura-ai-query', async ({ query, apiKey }) => {
+    socket.on('aura-ai-query', async ({ query } = {}) => {
       const reg = socketRegistry.get(socket.id);
       if (!reg || !query || !query.trim()) return;
 
@@ -676,8 +673,6 @@ export const setupMeetingSocket = (io) => {
         const reply = await generateGeminiReply({
           prompt: trimmedQuery,
           history: recentMessages,
-          apiKey,
-          roomCode: reg.roomCode,
           senderName: reg.displayName,
         });
 
@@ -705,6 +700,9 @@ export const setupMeetingSocket = (io) => {
         }
       } catch (err) {
         logger.error(`Error in aura-ai-query: ${err.message}`);
+        io.to(reg.roomCode).emit('aura-error', {
+          message: err.message || 'Aura AI could not complete that request.',
+        });
         io.to(reg.roomCode).emit('aura-status', { isThinking: false });
       }
     });

@@ -1,15 +1,12 @@
 import React from 'react';
-import { Sparkles, Key, MessageSquare, Send, Users } from 'lucide-react';
+import { Sparkles, MessageSquare, Send, Users } from 'lucide-react';
 
 export default function ChatDrawer({
-  geminiApiKey,
-  setShowKeyModal,
-  auraAutoReply,
-  setAuraAutoReply,
   handleTriggerAuraPrompt,
   messages,
   myName,
   isAuraThinking,
+  auraError,
   chatBottomRef,
   chatInput,
   setChatInput,
@@ -33,63 +30,52 @@ export default function ChatDrawer({
             <div className="aura-sparkle-icon">
               <Sparkles size={14} />
             </div>
-            <span>Aura AI Copilot</span>
-            <span className="aura-status-dot" title="Gemini AI Ready" />
+            <div className="aura-title-copy">
+              <span>Aura AI</span>
+              <small>Gemini-powered meeting copilot</small>
+            </div>
           </div>
 
-          <div className="aura-header-actions">
-            <button
-              className="aura-key-btn"
-              onClick={() => setShowKeyModal(true)}
-              title="Set custom Gemini API Key"
-            >
-              <Key size={12} />
-              <span>{geminiApiKey ? 'API Key Active' : 'Set Key'}</span>
-            </button>
-
-            <label
-              className="aura-auto-reply-toggle"
-              title="When enabled, Aura AI automatically answers questions in chat"
-            >
-              <span>Auto</span>
-              <div
-                className={`aura-switch ${auraAutoReply ? 'active' : ''}`}
-                onClick={() => setAuraAutoReply(!auraAutoReply)}
-              >
-                <div className="aura-switch-thumb" />
-              </div>
-            </label>
-          </div>
+          <span className="aura-private-note">No API key needed</span>
         </div>
 
-        {/* Quick Action Suggestion Chips */}
+        <p className="aura-banner-copy">
+          Ask anything about the conversation or get help from Aura.
+        </p>
         <div className="aura-prompt-chips">
           <button
             className="aura-chip-btn"
-            onClick={() => handleTriggerAuraPrompt('@aura Summarize what was discussed')}
+            onClick={() => handleTriggerAuraPrompt('@aura Summarize the discussion so far')}
           >
-            ✨ Summarize
+            ✨ Summary
           </button>
           <button
             className="aura-chip-btn"
-            onClick={() => handleTriggerAuraPrompt('@aura What are our key action items?')}
+            onClick={() => handleTriggerAuraPrompt('@aura Extract the action items and owners')}
           >
-            📋 Action Items
+            📋 Action items
           </button>
           <button
             className="aura-chip-btn"
-            onClick={() => handleTriggerAuraPrompt('@aura Suggest ideas for this topic')}
+            onClick={() => handleTriggerAuraPrompt('@aura List the decisions made so far')}
+          >
+            ✓ Decisions
+          </button>
+          <button
+            className="aura-chip-btn"
+            onClick={() => handleTriggerAuraPrompt('@aura Brainstorm a few creative next steps')}
           >
             💡 Brainstorm
           </button>
-          <button
-            className="aura-chip-btn"
-            onClick={() => handleTriggerAuraPrompt('@aura Give a quick meeting tip')}
-          >
-            🤖 Quick Tip
-          </button>
         </div>
       </div>
+
+      {auraError && (
+        <div className="aura-error-message" role="alert">
+          <Sparkles size={14} />
+          <span>{auraError}</span>
+        </div>
+      )}
 
       {/* Messages Container */}
       <div className="chat-messages-container">
@@ -197,7 +183,7 @@ export default function ChatDrawer({
             <input
               ref={chatInputRef}
               type="text"
-              placeholder="Send a message to everyone (type @ to mention)..."
+              placeholder="Message everyone or ask @aura anything..."
               className="chat-text-input"
               value={chatInput}
               onChange={handleChatInputChange}

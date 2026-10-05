@@ -16,7 +16,6 @@ import ParticipantsDrawer from '../components/meeting/ParticipantsDrawer';
 import {
   WaitingApprovalModal,
   AdmissionDeniedModal,
-  GeminiKeyModal,
   FloatingToast,
 } from '../components/meeting/MeetingModals';
 
@@ -55,8 +54,12 @@ export default function MeetingRoomPage() {
   const { displayName, user } = useAuth();
 
   // Settings passed from lobby
+  const isAudioOnly = Boolean(
+    location.state?.audioOnly ||
+    new URLSearchParams(location.search).get('mode') === 'audio'
+  );
   const initialAudio = location.state?.initialAudio !== false;
-  const initialVideo = location.state?.initialVideo !== false;
+  const initialVideo = !isAudioOnly && location.state?.initialVideo !== false;
   const [myName, setMyName] = useState(
     location.state?.participantName || user?.name || displayName || 'Participant'
   );
@@ -108,12 +111,7 @@ export default function MeetingRoomPage() {
 
   // Aura AI state
   const [isAuraThinking, setIsAuraThinking] = useState(false);
-  const [auraAutoReply, setAuraAutoReply] = useState(false);
-  const [geminiApiKey, setGeminiApiKey] = useState(
-    () => localStorage.getItem('aura_gemini_api_key') || ''
-  );
-  const [showKeyModal, setShowKeyModal] = useState(false);
-  const [tempKeyInput, setTempKeyInput] = useState(geminiApiKey);
+  const [auraError, setAuraError] = useState('');
 
   // Refs
   const localVideoRef = useRef(null);
@@ -123,6 +121,8 @@ export default function MeetingRoomPage() {
   const socketRef = useRef(null);
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
+  const screenAudioContextRef = useRef(null);
+  const screenAudioTrackRef = useRef(null);
   const screenShareStartingRef = useRef(false);
   const peerConnectionsRef = useRef(new Map()); // socketId -> RTCPeerConnection
   const screenTransceiversRef = useRef(new Map()); // socketId -> reserved screen transceiver
@@ -130,6 +130,20 @@ export default function MeetingRoomPage() {
   const remoteScreenStreamsRef = useRef(new Map()); // socketId -> MediaStream
   const screenSendersRef = useRef(new Map()); // socketId -> RTCRtpSender
   const pendingCandidatesRef = useRef(new Map()); // socketId -> RTCIceCandidateInit[]
+
+  const stopScreenAudioMixer = useCallback(async () => {
+    const mixedTrack = screenAudioTrackRef.current;
+    screenAudioTrackRef.current = null;
+    mixedTrack?.stop();
+
+    const audioContext = screenAudioContextRef.current;
+    screenAudioContextRef.current = null;
+    if (audioContext && audioContext.state !== 'closed') {
+      await audioContext.close().catch((err) => {
+        console.warn('[ScreenShare] Could not close audio mixer:', err);
+      });
+    }
+  }, []);
 
   // Keep localStreamRef synced
   useEffect(() => {
@@ -345,6 +359,15 @@ export default function MeetingRoomPage() {
       pc.addTransceiver('video', { direction: 'sendrecv' });
     }
 
+    if (screenAudioTrackRef.current) {
+      const audioTransceiver = pc.getTransceivers().find(
+        (transceiver) => transceiver.receiver.track?.kind === 'audio'
+      );
+      if (audioTransceiver) {
+        await audioTransceiver.sender.replaceTrack(screenAudioTrackRef.current);
+      }
+    }
+
     // Pre-allocate a dedicated screen transceiver (3rd slot, always screen)
     const screenTransceiver = pc.addTransceiver('video', {
       direction: 'sendrecv',
@@ -388,7 +411,7 @@ export default function MeetingRoomPage() {
     const startLocalMedia = async () => {
       try {
         currentStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: !isAudioOnly,
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
@@ -449,7 +472,7 @@ export default function MeetingRoomPage() {
         currentStream.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [initialAudio, initialVideo]);
+  }, [initialAudio, initialVideo, isAudioOnly]);
 
   // Sync mic & video enabled states on local stream
   useEffect(() => {
@@ -621,6 +644,15 @@ export default function MeetingRoomPage() {
           }
         }
 
+        if (screenAudioTrackRef.current) {
+          const audioTransceiver = pc.getTransceivers().find(
+            (transceiver) => transceiver.receiver.track?.kind === 'audio'
+          );
+          if (audioTransceiver) {
+            await audioTransceiver.sender.replaceTrack(screenAudioTrackRef.current);
+          }
+        }
+
         // Store our screen transceiver (for replaceTrack when we share later)
         const transceivers = pc.getTransceivers();
         const screenTransceiver =
@@ -773,6 +805,10 @@ export default function MeetingRoomPage() {
       setIsAuraThinking(!!isThinking);
     });
 
+    socket.on('aura-error', ({ message }) => {
+      setAuraError(message || 'Aura AI could not complete that request.');
+    });
+
     // 4l. User Left room
     socket.on('user-left', ({ socketId, displayName }) => {
       console.log('[WebRTC] User left:', socketId, displayName);
@@ -889,6 +925,7 @@ export default function MeetingRoomPage() {
       socket.off('user-raised-hand');
       socket.off('new-message');
       socket.off('aura-status');
+      socket.off('aura-error');
       socket.off('user-left');
       socket.off('host-media-action');
 
@@ -896,6 +933,7 @@ export default function MeetingRoomPage() {
         screenStreamRef.current.getTracks().forEach((t) => t.stop());
         screenStreamRef.current = null;
       }
+      stopScreenAudioMixer();
       screenSendersRef.current.clear();
       screenTransceiversRef.current.clear();
       remoteScreenStreamsRef.current.clear();
@@ -904,7 +942,7 @@ export default function MeetingRoomPage() {
       peerConnectionsRef.current.clear();
       remoteStreamsRef.current.clear();
     };
-  }, [roomCode, mediaReady, createPeerConnection]);
+  }, [roomCode, mediaReady, createPeerConnection, initiateOffer, stopScreenAudioMixer]);
 
   // Resume any paused video/audio immediately on any user interaction (resolves browser autoplay policy)
   useEffect(() => {
@@ -1082,15 +1120,37 @@ export default function MeetingRoomPage() {
     }
   };
 
+  const replaceOutgoingAudioTrack = async (track) => {
+    for (const pc of peerConnectionsRef.current.values()) {
+      if (pc.signalingState === 'closed') continue;
+      const audioTransceiver = pc.getTransceivers().find(
+        (transceiver) =>
+          transceiver.receiver.track?.kind === 'audio' ||
+          transceiver.sender.track?.kind === 'audio'
+      );
+      if (audioTransceiver) {
+        await audioTransceiver.sender.replaceTrack(track);
+      }
+    }
+  };
+
   // --------------------------------------------------------------------------
   // Screen Sharing (Google Meet style — replaceTrack on pre-allocated transceiver)
   // --------------------------------------------------------------------------
-  const stopScreenShare = () => {
+  const stopScreenShare = async () => {
+    const localAudioTrack = localStreamRef.current?.getAudioTracks()[0] || null;
+    try {
+      await replaceOutgoingAudioTrack(localAudioTrack);
+    } catch (err) {
+      console.warn('[ScreenShare] Could not restore microphone audio:', err);
+    }
+
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach((track) => track.stop());
       screenStreamRef.current = null;
       setScreenStream(null);
     }
+    await stopScreenAudioMixer();
     isScreenSharingRef.current = false;
     setIsScreenSharing(false);
 
@@ -1127,14 +1187,27 @@ export default function MeetingRoomPage() {
     }
 
     screenShareStartingRef.current = true;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let pendingAudioContext = null;
+    let audioContextReady = null;
     try {
+      if (AudioContextClass) {
+        pendingAudioContext = new AudioContextClass();
+        audioContextReady = pendingAudioContext.resume().catch((err) => {
+          console.warn('[ScreenShare] Could not resume audio mixer:', err);
+        });
+      }
+
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
-        audio: false,
+        audio: true,
+        systemAudio: 'include',
       });
       const screenVideoTrack = displayStream.getVideoTracks()[0];
       if (!screenVideoTrack) {
         displayStream.getTracks().forEach((track) => track.stop());
+        await pendingAudioContext?.close();
+        pendingAudioContext = null;
         setToastMessage('The selected display did not provide a video track.');
         return;
       }
@@ -1145,6 +1218,42 @@ export default function MeetingRoomPage() {
       setIsScreenSharing(true);
 
       try {
+        const displayAudioTracks = displayStream.getAudioTracks();
+        if (displayAudioTracks.length > 0) {
+          if (!pendingAudioContext) throw new Error('Web Audio is not supported by this browser.');
+          await audioContextReady;
+          if (pendingAudioContext.state !== 'running') {
+            throw new Error('Browser audio capture could not be started.');
+          }
+          const audioContext = pendingAudioContext;
+          screenAudioContextRef.current = audioContext;
+          pendingAudioContext = null;
+          const destination = audioContext.createMediaStreamDestination();
+          const microphoneTrack = localStreamRef.current?.getAudioTracks()[0];
+          if (microphoneTrack) {
+            const microphoneSource = audioContext.createMediaStreamSource(
+              new MediaStream([microphoneTrack])
+            );
+            const microphoneGain = audioContext.createGain();
+            microphoneGain.gain.value = 0.7;
+            microphoneSource.connect(microphoneGain).connect(destination);
+          }
+          const displaySource = audioContext.createMediaStreamSource(
+            new MediaStream(displayAudioTracks)
+          );
+          const displayGain = audioContext.createGain();
+          displayGain.gain.value = 0.7;
+          displaySource.connect(displayGain).connect(destination);
+          const mixedTrack = destination.stream.getAudioTracks()[0];
+          if (!mixedTrack) throw new Error('Could not mix shared screen audio.');
+          screenAudioTrackRef.current = mixedTrack;
+          await replaceOutgoingAudioTrack(mixedTrack);
+        } else {
+          await pendingAudioContext?.close();
+          pendingAudioContext = null;
+          setToastMessage('Choose a browser tab and enable “Share tab audio” to include webpage sound.');
+        }
+
         for (const [peerSocketId, pc] of peerConnectionsRef.current) {
           if (pc.signalingState === 'closed') continue;
           let transceiver = screenTransceiversRef.current.get(peerSocketId);
@@ -1166,7 +1275,7 @@ export default function MeetingRoomPage() {
           screenSendersRef.current.set(peerSocketId, transceiver.sender);
         }
       } catch (shareError) {
-        stopScreenShare();
+        await stopScreenShare();
         console.error('[ScreenShare] Could not send screen track to every peer:', shareError);
         setToastMessage('Could not share your screen with everyone. Please try again.');
         return;
@@ -1184,7 +1293,16 @@ export default function MeetingRoomPage() {
       screenVideoTrack.addEventListener('ended', stopScreenShare, { once: true });
     } catch (captureErr) {
       console.warn('[ScreenShare] getDisplayMedia failed:', captureErr);
-      setToastMessage('Screen sharing was cancelled or blocked.');
+      if (pendingAudioContext && pendingAudioContext.state !== 'closed') {
+        await pendingAudioContext.close().catch((err) => {
+          console.warn('[ScreenShare] Could not close pending audio mixer:', err);
+        });
+      }
+      setToastMessage(
+        captureErr.name === 'NotAllowedError'
+          ? 'Screen sharing was cancelled or blocked.'
+          : `Could not start screen sharing: ${captureErr.message}`
+      );
     } finally {
       screenShareStartingRef.current = false;
     }
@@ -1344,45 +1462,27 @@ export default function MeetingRoomPage() {
     const content = chatInput.trim();
     setChatInput('');
     setMentionQuery(null);
+    setAuraError('');
 
     if (socketRef.current?.connected) {
-      socketRef.current.emit('send-message', {
-        content,
-        apiKey: geminiApiKey,
-        autoReply: auraAutoReply,
-      });
+      socketRef.current.emit('send-message', { content });
+    } else {
+      setAuraError('Chat is reconnecting. Please try again in a moment.');
     }
 
-    try {
-      await api.messages.sendMessage(roomCode, {
-        content,
-        senderName: myName,
-      });
-    } catch (err) {
-      console.warn('Error saving message to REST:', err);
-    }
   };
 
   const handleTriggerAuraPrompt = (promptText) => {
     if (socketRef.current?.connected) {
-      socketRef.current.emit('send-message', {
-        content: promptText,
-        apiKey: geminiApiKey,
-        autoReply: true,
-      });
+      setAuraError('');
+      socketRef.current.emit('send-message', { content: promptText });
+    } else {
+      setAuraError('Chat is reconnecting. Please try again in a moment.');
     }
   };
 
-  const handleSaveGeminiKey = (e) => {
-    e.preventDefault();
-    const cleanKey = tempKeyInput.trim();
-    setGeminiApiKey(cleanKey);
-    localStorage.setItem('aura_gemini_api_key', cleanKey);
-    setShowKeyModal(false);
-  };
-
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/lobby/${roomCode}`;
+    const url = `${window.location.origin}/${isAudioOnly ? 'call' : 'lobby'}/${roomCode}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
@@ -1469,6 +1569,7 @@ export default function MeetingRoomPage() {
         isVideoOn={isVideoOn}
         toggleCamera={toggleCamera}
         isScreenSharing={isScreenSharing}
+        isAudioOnly={isAudioOnly}
         toggleScreenShare={toggleScreenShare}
         isHandRaised={isHandRaised}
         toggleRaiseHand={toggleRaiseHand}
@@ -1500,14 +1601,11 @@ export default function MeetingRoomPage() {
           {/* Chat Drawer */}
           {activeDrawer === 'chat' && (
             <ChatDrawer
-              geminiApiKey={geminiApiKey}
-              setShowKeyModal={setShowKeyModal}
-              auraAutoReply={auraAutoReply}
-              setAuraAutoReply={setAuraAutoReply}
               handleTriggerAuraPrompt={handleTriggerAuraPrompt}
               messages={messages}
               myName={myName}
               isAuraThinking={isAuraThinking}
+              auraError={auraError}
               chatBottomRef={chatBottomRef}
               chatInput={chatInput}
               setChatInput={setChatInput}
@@ -1554,15 +1652,6 @@ export default function MeetingRoomPage() {
       <AdmissionDeniedModal
         admissionDenied={admissionDenied}
         onReturnHome={() => navigate('/')}
-      />
-
-      {/* Gemini API Key Modal */}
-      <GeminiKeyModal
-        showKeyModal={showKeyModal}
-        setShowKeyModal={setShowKeyModal}
-        tempKeyInput={tempKeyInput}
-        setTempKeyInput={setTempKeyInput}
-        handleSaveGeminiKey={handleSaveGeminiKey}
       />
 
       {/* Floating Notification Toast */}

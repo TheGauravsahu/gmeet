@@ -10,6 +10,7 @@ export default function LobbyVideoPreview({
   displayName,
   onToggleMic,
   onToggleVideo,
+  audioOnly = false,
 }) {
   return (
     <div className="lobby-camera-panel">
@@ -39,7 +40,11 @@ export default function LobbyVideoPreview({
               </span>
             </div>
             <p className="placeholder-text">
-              {cameraError ? 'Camera access not available' : 'Camera is turned off'}
+              {audioOnly
+                ? 'Camera-free audio call'
+                : cameraError
+                  ? 'Camera access not available'
+                  : 'Camera is turned off'}
             </p>
           </div>
         )}
@@ -63,18 +68,24 @@ export default function LobbyVideoPreview({
             {isMicOn ? <Mic size={20} /> : <MicOff size={20} />}
           </button>
 
-          <button
-            className={`control-circle-btn ${!isVideoOn ? 'muted' : ''}`}
-            onClick={onToggleVideo}
-            title={isVideoOn ? 'Turn camera off' : 'Turn camera on'}
-          >
-            {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
-          </button>
+          {!audioOnly && (
+            <button
+              className={`control-circle-btn ${!isVideoOn ? 'muted' : ''}`}
+              onClick={onToggleVideo}
+              title={isVideoOn ? 'Turn camera off' : 'Turn camera on'}
+            >
+              {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
+            </button>
+          )}
         </div>
       </div>
 
       <div className="media-status-notice">
-        <span>Audio & video are ready. You can toggle anytime during the call.</span>
+        <span>
+          {audioOnly
+            ? 'Microphone audio only. Your camera is never requested.'
+            : 'Audio & video are ready. You can toggle anytime during the call.'}
+        </span>
       </div>
     </div>
   );

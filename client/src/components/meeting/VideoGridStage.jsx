@@ -1,5 +1,5 @@
 import React, { memo, useRef, useEffect, useCallback, useState } from 'react';
-import { Monitor, Mic, MicOff, Hand, Eye, EyeOff, XSquare } from 'lucide-react';
+import { Monitor, Mic, MicOff, Hand, Eye, XSquare } from 'lucide-react';
 import PeerVideoTile from './PeerVideoTile';
 
 function VideoGridStageComponent({
@@ -196,7 +196,9 @@ function VideoGridStageComponent({
                 </div>
                 <h2 className="presenter-stage-title">You're presenting to everyone</h2>
                 <p className="presenter-stage-subtitle">
-                  Your screen is being shared with everyone in this call.
+                  {screenStream?.getAudioTracks().length
+                    ? 'Your screen and shared tab audio are being sent to everyone in this call.'
+                    : 'Your screen is being shared. To share webpage sound, choose a browser tab and enable Share tab audio.'}
                 </p>
                 <div className="presenter-actions-row">
                   {onStopScreenShare && (

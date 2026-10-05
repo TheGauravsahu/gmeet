@@ -112,6 +112,22 @@ export default function MeetingsDashboardPage() {
     }
   };
 
+  const handleStartAudioCall = async () => {
+    try {
+      setNewMenuOpen(false);
+      const res = await api.rooms.createRoom({
+        title: `${displayName}'s Audio Call`,
+        hostName: displayName,
+      });
+
+      if (res.success && res.data.room) {
+        navigate(`/call/${res.data.room.roomCode}`);
+      }
+    } catch (err) {
+      alert(`Could not start audio call: ${err.message}`);
+    }
+  };
+
   // Create meeting for later
   const handleCreateMeetingForLater = async () => {
     try {
@@ -136,15 +152,18 @@ export default function MeetingsDashboardPage() {
     e.preventDefault();
     let cleaned = codeOrLink.trim();
     if (!cleaned) return;
+    const audioOnly = cleaned.includes('/call/') || /[?&]mode=audio(?:&|$)/i.test(cleaned);
 
     if (cleaned.includes('/meet/')) {
       cleaned = cleaned.split('/meet/')[1].split('?')[0];
+    } else if (cleaned.includes('/call/')) {
+      cleaned = cleaned.split('/call/')[1].split('?')[0];
     } else if (cleaned.includes('/lobby/')) {
       cleaned = cleaned.split('/lobby/')[1].split('?')[0];
     }
 
-    cleaned = cleaned.toLowerCase().replace(/\s+/g, '');
-    navigate(`/lobby/${cleaned}`);
+    cleaned = cleaned.split('?')[0].split('#')[0].toLowerCase().replace(/\s+/g, '');
+    navigate(`/${audioOnly ? 'call' : 'lobby'}/${cleaned}`);
   };
 
   // Delete a room
@@ -216,6 +235,7 @@ export default function MeetingsDashboardPage() {
         newMenuOpen={newMenuOpen}
         setNewMenuOpen={setNewMenuOpen}
         onStartInstantMeeting={handleStartInstantMeeting}
+        onStartAudioCall={handleStartAudioCall}
         onCreateMeetingForLater={handleCreateMeetingForLater}
         onOpenScheduleModal={() => setScheduleModalOpen(true)}
         onOpenSafetyModal={() => setSafetyModalOpen(true)}

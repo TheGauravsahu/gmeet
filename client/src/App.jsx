@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
@@ -31,6 +31,11 @@ function AuthWrapper({ mode }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    localStorage.removeItem('aura_gemini_api_key');
+    localStorage.removeItem('aura_gemini_key');
+  }, []);
+
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -82,6 +87,7 @@ export default function App() {
 
           {/* Guests can preview a meeting and request host admission without an account. */}
           <Route path="/lobby/:roomCode" element={<LobbyPage />} />
+          <Route path="/call/:roomCode" element={<LobbyPage audioOnly />} />
 
           {/* Host admission is enforced by the signaling server, not the client route. */}
           <Route path="/meet/:roomCode" element={<MeetingRoomPage />} />

@@ -7,13 +7,13 @@ import LobbyHeader from '../components/lobby/LobbyHeader';
 import LobbyVideoPreview from '../components/lobby/LobbyVideoPreview';
 import LobbyJoinCard from '../components/lobby/LobbyJoinCard';
 
-export default function LobbyPage() {
+export default function LobbyPage({ audioOnly = false }) {
   const { roomCode } = useParams();
   const navigate = useNavigate();
   const { user, guestName, setGuestName } = useAuth();
 
   const [isMicOn, setIsMicOn] = useState(true);
-  const [isVideoOn, setIsVideoOn] = useState(true);
+  const [isVideoOn, setIsVideoOn] = useState(!audioOnly);
   const [stream, setStream] = useState(null);
   const [cameraError, setCameraError] = useState(false);
   const [roomData, setRoomData] = useState(null);
@@ -59,7 +59,7 @@ export default function LobbyPage() {
     const startMedia = async () => {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: !audioOnly,
           audio: true,
         });
         setStream(localStream);
@@ -81,7 +81,7 @@ export default function LobbyPage() {
         localStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, [audioOnly]);
 
   // Sync track state when toggled
   useEffect(() => {
@@ -181,7 +181,7 @@ export default function LobbyPage() {
   };
 
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/lobby/${roomCode}`;
+    const url = `${window.location.origin}/${audioOnly ? 'call' : 'lobby'}/${roomCode}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
@@ -216,10 +216,11 @@ export default function LobbyPage() {
       setJoining(false);
       setWaitingForApproval(false);
 
-      navigate(`/meet/${roomCode}`, {
+      navigate(`/meet/${roomCode}${audioOnly ? '?mode=audio' : ''}`, {
         state: {
           initialAudio: isMicOn,
           initialVideo: isVideoOn,
+          audioOnly,
           participantName: assignedName || finalName,
           isHost,
         },
@@ -271,11 +272,13 @@ export default function LobbyPage() {
           displayName={user?.name || participantName || 'Guest'}
           onToggleMic={handleToggleMic}
           onToggleVideo={handleToggleVideo}
+          audioOnly={audioOnly}
         />
 
         {/* Right Column: Meeting Info & Host Approval Box */}
         <LobbyJoinCard
           roomCode={roomCode}
+          audioOnly={audioOnly}
           roomData={roomData}
           user={user}
           loading={loading}

@@ -11,6 +11,7 @@ import {
 
 export default function LobbyJoinCard({
   roomCode,
+  audioOnly = false,
   roomData,
   user,
   loading,
@@ -31,7 +32,7 @@ export default function LobbyJoinCard({
       <div className="lobby-card-glass">
         <div className="join-badge">
           <Sparkles size={13} />
-          <span>AURA Meeting Room</span>
+          <span>{audioOnly ? 'AURA Audio Call' : 'AURA Meeting Room'}</span>
         </div>
 
         <h2 className="lobby-room-title">
@@ -40,7 +41,9 @@ export default function LobbyJoinCard({
 
         <p className="lobby-room-desc">
           {roomData?.description ||
-            `You are about to enter meeting #${roomCode}. You may need host approval before joining.`}
+            (audioOnly
+              ? `Join audio-only call #${roomCode} without turning on or requesting your camera.`
+              : `You are about to enter meeting #${roomCode}. You may need host approval before joining.`)}
         </p>
 
         {error ? (
@@ -115,7 +118,15 @@ export default function LobbyJoinCard({
               disabled={loading || joining || Boolean(error) || roomData?.status === 'ended'}
               className="btn-pill-primary join-meeting-main-btn"
             >
-              <span>{loading ? 'Loading meeting…' : joining ? 'Connecting...' : 'Join Meeting'}</span>
+              <span>
+                {loading
+                  ? 'Loading meeting…'
+                  : joining
+                    ? 'Connecting...'
+                    : audioOnly
+                      ? 'Join Audio Call'
+                      : 'Join Meeting'}
+              </span>
               <ArrowRight size={18} />
             </button>
           </form>

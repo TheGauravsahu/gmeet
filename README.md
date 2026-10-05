@@ -23,7 +23,10 @@ This project is structured as a full-stack application with:
 - Meeting room lifecycle with join, leave, and end states
 - Real-time participant status and room updates
 - Chat support within meetings
-- AI-transcript-inspired architecture for future smart video experiences
+- Camera-free audio calls with no camera permission request
+- Screen sharing with optional browser-tab audio for shared media
+- Aura AI meeting copilot powered by the backend Gemini API key
+- In-call AI summaries, action items, decisions, and brainstorming
 - Responsive design for desktop and browser-based use
 
 ## Tech Stack
@@ -96,7 +99,13 @@ MONGODB_URI=mongodb://127.0.0.1:27017/gmeet
 JWT_SECRET=your_secure_secret_here
 JWT_EXPIRES_IN=7d
 CORS_ORIGIN=http://localhost:5173
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
+
+Aura AI reads `GEMINI_API_KEY` only on the backend. Never add this secret to
+the frontend environment or send it from the browser. To start a camera-free
+call, choose **New → Start a camera-free audio call** from the dashboard.
+Participants can also join a room through `/call/<room-code>`.
 
 For a deployed frontend, set `VITE_API_URL` to the backend origin (for example,
 `https://api-aurameet.onrender.com`). The frontend adds the API prefix

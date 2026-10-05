@@ -365,38 +365,31 @@
   object-fit: cover;
 }
 
-/* Gemini Key Input Row */
-.key-input-row {
+.profile-ai-info {
   display: flex;
-  align-items: center;
-  position: relative;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.08);
+  color: #c084fc;
 }
 
-.key-input-row .auth-input {
-  padding-right: 80px;
-}
-
-.key-actions-right {
-  position: absolute;
-  right: 8px;
-  display: flex;
-  align-items: center;
+.profile-ai-info > div {
+  display: grid;
   gap: 6px;
 }
 
-.icon-key-btn {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  transition: color 0.2s ease;
+.profile-ai-info strong {
+  color: #f8fafc;
+  font-size: 0.86rem;
 }
 
-.icon-key-btn:hover {
-  color: #c084fc;
+.profile-ai-info span {
+  color: #a8a8bc;
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 /* Preferences Toggle Items */

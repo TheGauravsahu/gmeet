@@ -12,7 +12,7 @@ import { sendSuccess, sendError } from '../utils/apiResponse.js';
 export const askAuraAi = async (req, res, next) => {
   try {
     const roomCode = normalizeRoomCode(req.params.roomCode);
-    const { prompt, apiKey, senderName } = req.body;
+    const { prompt, senderName } = req.body;
 
     if (!prompt || !prompt.trim()) {
       return sendError(res, 'Prompt cannot be empty', 400);
@@ -31,8 +31,6 @@ export const askAuraAi = async (req, res, next) => {
     const reply = await generateGeminiReply({
       prompt: prompt.trim(),
       history: recentMessages,
-      apiKey: apiKey || null,
-      roomCode,
       senderName: senderName || (req.user ? req.user.name : 'Participant'),
     });
 

@@ -17,6 +17,7 @@ export default function MeetingDock({
   isVideoOn,
   toggleCamera,
   isScreenSharing,
+  isAudioOnly = false,
   toggleScreenShare,
   isHandRaised,
   toggleRaiseHand,
@@ -39,14 +40,15 @@ export default function MeetingDock({
           {isMicOn ? <Mic size={20} /> : <MicOff size={20} />}
         </button>
 
-        {/* Camera */}
-        <button
-          className={`dock-circle-btn ${!isVideoOn ? 'btn-danger' : 'btn-active'}`}
-          onClick={toggleCamera}
-          title={isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'}
-        >
-          {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
-        </button>
+        {!isAudioOnly && (
+          <button
+            className={`dock-circle-btn ${!isVideoOn ? 'btn-danger' : 'btn-active'}`}
+            onClick={toggleCamera}
+            title={isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'}
+          >
+            {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
+          </button>
+        )}
 
         {/* Screen Share */}
         <button

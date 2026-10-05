@@ -28,7 +28,11 @@ MONGODB_URI=mongodb://127.0.0.1:27017/gmeet
 JWT_SECRET=change_this_in_production
 JWT_EXPIRES_IN=7d
 CORS_ORIGIN=http://localhost:5173
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
+
+Aura AI uses this backend-only key for in-call `@aura` questions and meeting
+tools. Do not send the key from the browser or place it in a `VITE_` variable.
 
 ## Running the API
 
@@ -588,4 +592,3 @@ curl -X POST http://localhost:5000/api/auth/register \
 - The API validates room codes and normalizes them to lowercase.
 - Protected endpoints rely on JWT identity and can support guest access when the request is optional.
 - Room and participant records are persisted in MongoDB and used by the real-time signaling layer.
-

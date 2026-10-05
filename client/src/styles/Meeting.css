@@ -1565,13 +1565,15 @@
 .aura-copilot-banner,
 .aura-chat-header-card {
   margin: 12px 16px 8px 16px;
-  padding: 12px 14px;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(79, 70, 229, 0.15));
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  border-radius: 12px;
+  padding: 15px;
+  background:
+    radial-gradient(ellipse at top left, rgba(139, 92, 246, 0.2), transparent 58%),
+    linear-gradient(145deg, rgba(22, 20, 39, 0.98), rgba(16, 18, 31, 0.98));
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 11px;
   flex-shrink: 0;
 }
 
@@ -1585,10 +1587,56 @@
 .aura-title-badge {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 0.85rem;
   font-weight: 700;
   color: #ffffff;
+}
+
+.aura-title-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.aura-title-copy small {
+  color: #9b9caf;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.aura-private-note {
+  padding: 5px 8px;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: 999px;
+  color: #6ee7b7;
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+.aura-banner-copy {
+  color: #b6b5c7;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.aura-error-message {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 16px 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 10px;
+  background: rgba(127, 29, 29, 0.18);
+  color: #fecaca;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.aura-error-message svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
 }
 
 .aura-sparkle-icon {
@@ -1601,51 +1649,6 @@
   justify-content: center;
   color: #fff;
   box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
-}
-
-.aura-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 6px #10b981;
-  display: inline-block;
-  margin-left: 4px;
-}
-
-.aura-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.aura-key-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 0.72rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: all 0.2s ease;
-}
-
-.aura-key-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-}
-
-.aura-auto-reply-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  color: #cbd5e1;
-  cursor: pointer;
-  user-select: none;
 }
 
 .aura-switch {
@@ -1695,12 +1698,12 @@
 }
 
 .aura-chip-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: 0.72rem;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #d1d5e1;
+  padding: 6px 10px;
+  border-radius: 9px;
+  font-size: 0.7rem;
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1754,7 +1757,6 @@
   to { opacity: 1; }
 }
 
-/* Modal for API Key */
 .aura-modal-overlay {
   position: fixed;
   inset: 0;
@@ -1799,49 +1801,11 @@
   margin-bottom: 16px;
 }
 
-.aura-modal-input {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 0.85rem;
-  color: #ffffff;
-  margin-bottom: 16px;
-  font-family: monospace;
-}
-
-.aura-modal-input:focus {
-  outline: none;
-  border-color: #8b5cf6;
-}
-
 .aura-modal-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-}
-
-.aura-btn-cancel {
-  background: rgba(255, 255, 255, 0.08);
-  border: none;
-  color: #cbd5e1;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-
-.aura-btn-save {
-  background: linear-gradient(135deg, #7c3aed, #4f46e5);
-  border: none;
-  color: #ffffff;
-  padding: 8px 18px;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 /* ==========================================================================
@@ -2499,4 +2463,3 @@
   border: 1px solid rgba(59, 130, 246, 0.35);
   color: #93c5fd;
 }
-

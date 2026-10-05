@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Video,
+  Headphones,
   Keyboard,
   Plus,
   Zap,
@@ -10,7 +11,6 @@ import {
   HelpCircle,
   Settings,
   Sparkles,
-  Shield,
   LogOut,
 } from "lucide-react";
 
@@ -24,6 +24,7 @@ export default function DashboardTopNav({
   newMenuOpen,
   setNewMenuOpen,
   onStartInstantMeeting,
+  onStartAudioCall,
   onCreateMeetingForLater,
   onOpenScheduleModal,
   onOpenSafetyModal,
@@ -103,6 +104,21 @@ export default function DashboardTopNav({
 
               <button
                 className="menu-item-action"
+                onClick={onStartAudioCall}
+              >
+                <Headphones size={16} className="menu-item-icon" />
+                <div>
+                  <div style={{ fontWeight: 600 }}>
+                    Start a camera-free audio call
+                  </div>
+                  <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+                    Meet without requesting camera access
+                  </div>
+                </div>
+              </button>
+
+              <button
+                className="menu-item-action"
                 onClick={onCreateMeetingForLater}
               >
                 <LinkIcon size={16} className="menu-item-icon" />
@@ -151,7 +167,7 @@ export default function DashboardTopNav({
           title="Settings"
           onClick={() =>
             alert(
-              "Settings: Audio, Video & Gemini AI are configured and active.",
+              "Choose your audio and camera preferences before joining a call. Start a camera-free audio call from New.",
             )
           }
         >

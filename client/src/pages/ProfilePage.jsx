@@ -3,24 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import {
   Video,
   User,
-  Mail,
-  Lock,
-  Key,
-  Eye,
-  EyeOff,
   Sparkles,
-  Shield,
   ShieldCheck,
   Check,
   Calendar,
-  Clock,
   LogOut,
   ArrowLeft,
-  Sliders,
   Activity,
   Zap,
-  Globe,
-  Settings,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -45,15 +35,6 @@ export default function ProfilePage() {
   const [selectedSeed, setSelectedSeed] = useState(user?.name || displayName || 'User');
   const [customAvatar, setCustomAvatar] = useState(user?.avatar || '');
   const [emailInput] = useState(user?.email || 'guest.user@aura.meet');
-
-  // Gemini AI key settings
-  const [geminiApiKey, setGeminiApiKey] = useState(
-    localStorage.getItem('aura_gemini_key') || ''
-  );
-  const [showKey, setShowKey] = useState(false);
-  const [autoReply, setAutoReply] = useState(
-    localStorage.getItem('aura_auto_reply') === 'true'
-  );
 
   // Audio/video defaults
   const [defaultMicOn, setDefaultMicOn] = useState(
@@ -101,13 +82,6 @@ export default function ProfilePage() {
     };
     updateUser(updated);
 
-    // Save Gemini AI preferences
-    if (geminiApiKey) {
-      localStorage.setItem('aura_gemini_key', geminiApiKey.trim());
-    } else {
-      localStorage.removeItem('aura_gemini_key');
-    }
-    localStorage.setItem('aura_auto_reply', autoReply ? 'true' : 'false');
     localStorage.setItem('aura_pref_mic', defaultMicOn ? 'true' : 'false');
     localStorage.setItem('aura_pref_video', defaultVideoOn ? 'true' : 'false');
 
@@ -239,7 +213,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="meta-chip-item">
                   <Sparkles size={13} color="#fbbf24" />
-                  <span>Gemini 2.5 Active</span>
+                  <span>Aura AI Copilot</span>
                 </div>
               </div>
             </div>
@@ -285,9 +259,9 @@ export default function ProfilePage() {
             </div>
             <div>
               <div className="stat-val-text">
-                {geminiApiKey ? 'Custom Key' : 'Default AI'}
+                Aura AI
               </div>
-              <div className="stat-label-text">Gemini Copilot Engine</div>
+              <div className="stat-label-text">Backend Gemini Copilot</div>
             </div>
           </div>
 
@@ -393,47 +367,12 @@ export default function ProfilePage() {
             </div>
 
             <div className="profile-form-grid">
-              {/* Gemini API Key */}
-              <div className="profile-field-group">
-                <label className="profile-field-label">Google Gemini API Key</label>
-                <div className="key-input-row">
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    placeholder="AIzaSy..."
-                    className="auth-input"
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                  />
-                  <div className="key-actions-right">
-                    <button
-                      type="button"
-                      className="icon-key-btn"
-                      onClick={() => setShowKey(!showKey)}
-                      title={showKey ? 'Hide key' : 'Show key'}
-                    >
-                      {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-                <span className="profile-field-subtext">
-                  Provide your own Gemini key for unlimited high-frequency copilot summaries in calls.
-                </span>
-              </div>
-
-              {/* Preferences Toggles */}
-              <div className="preference-item-row">
-                <div className="pref-text-col">
-                  <span className="pref-title">Aura AI Auto-Reply in Chat</span>
-                  <span className="pref-sub">
-                    Automatically answer questions in in-call chat
-                  </span>
-                </div>
-                <div
-                  className={`aura-switch ${autoReply ? 'active' : ''}`}
-                  onClick={() => setAutoReply(!autoReply)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className="aura-switch-thumb" />
+              <div className="profile-ai-info">
+                <Sparkles size={18} />
+                <div>
+                  <strong>Aura is ready in your calls</strong>
+                  <span>Type @aura in chat for answers, summaries, action items, and ideas.</span>
+                  <span>Your Gemini API key stays in the backend and is never stored in this browser.</span>
                 </div>
               </div>
 
@@ -479,7 +418,7 @@ export default function ProfilePage() {
               >
                 <ShieldCheck size={20} color="#10b981" />
                 <span style={{ fontSize: '0.78rem', color: '#cbd5e1' }}>
-                  Your Gemini API Key is encrypted locally on your browser and never shared with other participants.
+                  Camera-free calls never request camera access. Your Aura AI key remains server-side.
                 </span>
               </div>
             </div>
