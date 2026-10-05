@@ -32,8 +32,15 @@ export default function ProtectedRoute({ children }) {
   }
 
   if (!isAuthenticated) {
-    // Redirect unauthenticated users to /signin, saving target location
-    return <Navigate to="/signin" state={{ from: location }} replace />;
+    // Redirect unauthenticated users to /signin with target return URL
+    const targetUrl = location.pathname + location.search;
+    return (
+      <Navigate
+        to={`/signin?redirectTo=${encodeURIComponent(targetUrl)}`}
+        state={{ from: location }}
+        replace
+      />
+    );
   }
 
   return children;

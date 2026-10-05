@@ -49,7 +49,7 @@ export default function ScheduleModal({ isOpen, onClose }) {
 
   const handleCopy = () => {
     if (!createdRoom) return;
-    const url = `${window.location.origin}/meet/${createdRoom.roomCode}`;
+    const url = `${window.location.origin}/lobby/${createdRoom.roomCode}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -81,7 +81,7 @@ export default function ScheduleModal({ isOpen, onClose }) {
             </p>
 
             <div className="modal-link-box" style={{ margin: '20px 0' }}>
-              <span>{window.location.origin}/meet/{createdRoom.roomCode}</span>
+              <span>{window.location.origin}/lobby/{createdRoom.roomCode}</span>
               <button className="copy-pill-btn" onClick={handleCopy}>
                 {copied ? <Check size={14} /> : <Copy size={14} />}
                 <span>{copied ? 'Copied' : 'Copy'}</span>
@@ -93,7 +93,7 @@ export default function ScheduleModal({ isOpen, onClose }) {
                 Done
               </button>
               <a
-                href={`/meet/${createdRoom.roomCode}`}
+                href={`/lobby/${createdRoom.roomCode}`}
                 className="btn-pill-primary"
                 style={{ textDecoration: 'none' }}
               >

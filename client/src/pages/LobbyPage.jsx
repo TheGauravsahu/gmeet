@@ -10,9 +10,8 @@ import LobbyJoinCard from '../components/lobby/LobbyJoinCard';
 export default function LobbyPage() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
-  const { displayName, setGuestName, user } = useAuth();
+  const { user, guestName, setGuestName } = useAuth();
 
-  const [inputName, setInputName] = useState(displayName);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [stream, setStream] = useState(null);
@@ -24,6 +23,7 @@ export default function LobbyPage() {
   const [deniedMessage, setDeniedMessage] = useState('');
   const [error, setError] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [participantName, setParticipantName] = useState(user?.name || guestName || '');
 
   const videoRef = useRef(null);
   const socketRef = useRef(null);
@@ -95,19 +95,24 @@ export default function LobbyPage() {
     }
   }, [isVideoOn, isMicOn, stream]);
 
-  // Clean up media streams before unmounting
+  // Keep media and socket cleanup independent so a stream change does not remove join listeners.
   useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
+    };
+  }, [stream]);
+
+  useEffect(() => {
+    return () => {
       if (socketRef.current) {
         socketRef.current.off('join-approved');
         socketRef.current.off('waiting-for-host');
         socketRef.current.off('join-denied');
       }
     };
-  }, [stream]);
+  }, []);
 
   const handleToggleMic = () => {
     const nextState = !isMicOn;
@@ -176,7 +181,7 @@ export default function LobbyPage() {
   };
 
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/meet/${roomCode}`;
+    const url = `${window.location.origin}/lobby/${roomCode}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
@@ -184,13 +189,18 @@ export default function LobbyPage() {
 
   const handleJoin = async (e) => {
     e.preventDefault();
-    const finalName = (inputName || '').trim() || (user ? user.name : 'Guest Participant');
-    if (!user) {
-      setGuestName(finalName);
+    const finalName = (user?.name || participantName).trim();
+    if (!finalName) {
+      setError('Enter a name to join this meeting.');
+      return;
     }
 
     setJoining(true);
     setDeniedMessage('');
+    setError('');
+    if (!user) {
+      setGuestName(finalName);
+    }
 
     // Connect socket for real-time host admission flow
     const socket = connectSocket();
@@ -201,27 +211,22 @@ export default function LobbyPage() {
     socket.off('waiting-for-host');
     socket.off('join-denied');
 
-    // Host admitted or this user is first/host
+    // Host admitted or this user is authentic host
     socket.on('join-approved', ({ isHost, assignedName }) => {
       setJoining(false);
       setWaitingForApproval(false);
-
-      const effectiveName = assignedName || finalName;
-      if (!user) {
-        setGuestName(effectiveName);
-      }
 
       navigate(`/meet/${roomCode}`, {
         state: {
           initialAudio: isMicOn,
           initialVideo: isVideoOn,
-          participantName: effectiveName,
+          participantName: assignedName || finalName,
           isHost,
         },
       });
     });
 
-    // Host must approve first
+    // Participant must wait for host approval
     socket.on('waiting-for-host', () => {
       setJoining(false);
       setWaitingForApproval(true);
@@ -238,7 +243,9 @@ export default function LobbyPage() {
     socket.emit('request-to-join', {
       roomCode,
       user: {
+        userId: user?._id || user?.id || '',
         displayName: finalName,
+        email: user?.email || '',
         avatar: user?.avatar || '',
         isAudioMuted: !isMicOn,
         isVideoMuted: !isVideoOn,
@@ -261,7 +268,7 @@ export default function LobbyPage() {
           isVideoOn={isVideoOn}
           isMicOn={isMicOn}
           cameraError={cameraError}
-          displayName={inputName}
+          displayName={user?.name || participantName || 'Guest'}
           onToggleMic={handleToggleMic}
           onToggleVideo={handleToggleVideo}
         />
@@ -270,14 +277,17 @@ export default function LobbyPage() {
         <LobbyJoinCard
           roomCode={roomCode}
           roomData={roomData}
+          user={user}
+          loading={loading}
+          participantName={participantName}
+          onParticipantNameChange={setParticipantName}
           error={error}
-          inputName={inputName}
-          setInputName={setInputName}
           joining={joining}
           waitingForApproval={waitingForApproval}
           deniedMessage={deniedMessage}
           onJoin={handleJoin}
           onCancelRequest={() => {
+            socketRef.current?.emit('cancel-join-request', { roomCode });
             setWaitingForApproval(false);
             setJoining(false);
           }}

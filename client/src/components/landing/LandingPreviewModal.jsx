@@ -130,7 +130,7 @@ export default function LandingPreviewModal({
   if (!isOpen) return null;
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/meet/xkq-92m-prv`);
+    navigator.clipboard.writeText(`${window.location.origin}/lobby/xkq-92m-prv`);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
   };
@@ -152,7 +152,7 @@ export default function LandingPreviewModal({
     setStream(null);
     onClose();
     if (onJoinRoom) {
-      onJoinRoom('/meet/xkq-92m-prv');
+      onJoinRoom('/lobby/xkq-92m-prv');
     }
   };
 
@@ -256,7 +256,7 @@ export default function LandingPreviewModal({
 
         {/* Room Link Bar */}
         <div className="modal-link-box">
-          <span>{window.location.origin}/meet/xkq-92m-prv</span>
+          <span>{window.location.origin}/lobby/xkq-92m-prv</span>
           <button className="copy-pill-btn" onClick={handleCopyLink}>
             {copiedLink ? <Check size={14} /> : <Copy size={14} />}
             <span>{copiedLink ? 'Copied!' : 'Copy Link'}</span>

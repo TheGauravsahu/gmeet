@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, memo } from 'react';
+import React, { useRef, useEffect, useState, useCallback, memo } from 'react';
 import { Mic, MicOff, Video, VideoOff, Hand } from 'lucide-react';
 
 /**
@@ -17,14 +17,15 @@ function PeerVideoTileComponent({
   const [, setTrackVersion] = useState(0);
 
   // Instant audio & video playback helper
-  const tryPlayMedia = () => {
+  const tryPlayMedia = useCallback(() => {
     if (audioRef.current && stream) {
       if (audioRef.current.srcObject !== stream) {
         audioRef.current.srcObject = stream;
       }
       audioRef.current.play().catch((err) => {
-        // Autoplay may be caught if browser requires a gesture
-        console.warn(`[WebRTC] Audio play waiting for user interaction for ${peer.displayName}:`, err.message);
+        if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+          console.warn(`[WebRTC] Audio playback failed for ${peer.displayName}:`, err);
+        }
       });
     }
 
@@ -34,27 +35,15 @@ function PeerVideoTileComponent({
       }
       videoRef.current.play().catch(() => {});
     }
-  };
+  }, [peer.displayName, stream]);
 
-  const setVideoEl = (el) => {
+  const setVideoEl = useCallback((el) => {
     videoRef.current = el;
-    if (el && stream && el.srcObject !== stream) {
-      el.srcObject = stream;
-      el.play().catch(() => {});
-    }
-  };
+  }, []);
 
-  const setAudioEl = (el) => {
+  const setAudioEl = useCallback((el) => {
     audioRef.current = el;
-    if (el && stream) {
-      if (el.srcObject !== stream) {
-        el.srcObject = stream;
-      }
-      el.play().catch((err) => {
-        console.warn(`[WebRTC] Audio autoplay caught for ${peer.displayName}:`, err.message);
-      });
-    }
-  };
+  }, []);
 
   // Immediate playback as soon as stream or tracks change (eliminates audio arrival delay!)
   useEffect(() => {
@@ -74,7 +63,7 @@ function PeerVideoTileComponent({
       stream.removeEventListener('addtrack', handleTrackChange);
       stream.removeEventListener('removetrack', handleTrackChange);
     };
-  }, [stream]);
+  }, [stream, tryPlayMedia]);
 
   const hasVideoTrack =
     stream &&

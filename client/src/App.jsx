@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './AuthPage';
@@ -16,6 +16,7 @@ import './styles/Meeting.css';
 import './styles/Dashboard.css';
 import './styles/Profile.css';
 import './styles/MeetingEnded.css';
+import './styles/MobileResponsive.css';
 
 // Wrapper for LandingPage so onNavigate works with React Router
 function LandingWrapper() {
@@ -79,12 +80,15 @@ export default function App() {
           <Route path="/signup" element={<AuthWrapper mode="signup" />} />
           <Route path="/register" element={<AuthWrapper mode="signup" />} />
 
-          {/* Pre-Call Lobby / Green Room */}
+          {/* Guests can preview a meeting and request host admission without an account. */}
           <Route path="/lobby/:roomCode" element={<LobbyPage />} />
 
-          {/* Live Video Meeting Room */}
+          {/* Host admission is enforced by the signaling server, not the client route. */}
           <Route path="/meet/:roomCode" element={<MeetingRoomPage />} />
-          <Route path="/meeting/:roomCode" element={<MeetingRoomPage />} />
+          <Route
+            path="/meeting/:roomCode"
+            element={<MeetingRoomPage />}
+          />
 
           {/* Meeting Ended / Left Meeting Screen */}
           <Route path="/ended/:roomCode" element={<MeetingEndedPage />} />

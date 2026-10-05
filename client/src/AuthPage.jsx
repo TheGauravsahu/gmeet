@@ -37,8 +37,14 @@ export default function AuthPage({ initialMode = 'signin', onNavigate }) {
       setAuthSuccessToast(true);
       setTimeout(() => {
         setAuthSuccessToast(false);
-        onNavigate('/');
-      }, 1000);
+        const searchParams = new URLSearchParams(window.location.search);
+        const redirectTo = searchParams.get('redirectTo');
+        if (redirectTo) {
+          onNavigate(redirectTo);
+        } else {
+          onNavigate('/home');
+        }
+      }, 900);
     } catch (err) {
       setErrorMessage(err.message || 'Authentication failed. Please check your credentials.');
     } finally {
@@ -48,7 +54,13 @@ export default function AuthPage({ initialMode = 'signin', onNavigate }) {
 
   const handleSwitchMode = (modePath) => {
     setErrorMessage('');
-    onNavigate(modePath);
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectTo = searchParams.get('redirectTo');
+    if (redirectTo) {
+      onNavigate(`${modePath}?redirectTo=${encodeURIComponent(redirectTo)}`);
+    } else {
+      onNavigate(modePath);
+    }
   };
 
   return (

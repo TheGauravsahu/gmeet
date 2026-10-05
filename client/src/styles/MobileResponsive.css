@@ -1,0 +1,1151 @@
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 320px;
+}
+
+.mobile-nav-toggle {
+  display: none;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-topbar {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .topbar-center-section {
+    margin-right: 12px;
+    margin-left: 12px;
+  }
+
+  .topbar-right-section {
+    gap: 8px;
+  }
+
+  .dashboard-main-view {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+
+  .meeting-stage-viewport {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .has-screen-share {
+    grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .navbar {
+    height: 60px;
+    padding: 0 14px;
+    gap: 8px;
+  }
+
+  .nav-brand {
+    gap: 7px;
+    font-size: 0.92rem;
+  }
+
+  .nav-links {
+    display: none;
+  }
+
+  .mobile-nav-toggle {
+    display: inline-flex;
+    order: 2;
+    flex: 0 0 38px;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+  }
+
+  .navbar > .nav-actions {
+    order: 1;
+  }
+
+  .navbar > .mobile-nav-toggle {
+    margin-left: auto;
+  }
+
+  .navbar > .nav-links {
+    order: 3;
+  }
+
+  .nav-links.mobile-open {
+    position: absolute;
+    top: calc(100% + 7px);
+    right: 10px;
+    left: 10px;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    margin: 0;
+    padding: 8px;
+    background: rgba(14, 15, 25, 0.98);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 14px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
+  }
+
+  .nav-links.mobile-open .nav-link {
+    display: flex;
+    min-height: 42px;
+    align-items: center;
+    padding: 0 12px;
+    text-align: left;
+  }
+
+  .nav-links.mobile-open .nav-link::after {
+    display: none;
+  }
+
+  .nav-actions {
+    min-width: 0;
+    gap: 7px;
+  }
+
+  .nav-actions > button {
+    min-height: 38px;
+    padding-right: 12px !important;
+    padding-left: 12px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .nav-user-badge {
+    padding-right: 7px;
+  }
+
+  .nav-user-name {
+    display: none;
+  }
+
+  .dashboard-topbar {
+    height: auto;
+    min-height: 60px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    padding: 10px 14px;
+  }
+
+  .topbar-left-section {
+    min-width: 0;
+  }
+
+  .dashboard-brand-title {
+    font-size: 1rem;
+  }
+
+  .topbar-right-section {
+    min-width: 0;
+    justify-content: flex-end;
+  }
+
+  .dashboard-topbar .topbar-center-section {
+    display: flex;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  .quick-code-form {
+    min-width: 0;
+    padding-left: 10px;
+  }
+
+  .quick-code-btn {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .btn-new-meeting {
+    padding: 9px 13px;
+  }
+
+  .dashboard-layout-body {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+
+  .dashboard-sidebar {
+    position: fixed;
+    z-index: 60;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    width: 100%;
+    height: calc(62px + env(safe-area-inset-bottom));
+    padding: 6px 12px env(safe-area-inset-bottom);
+    gap: 8px;
+    background: rgba(10, 10, 18, 0.96);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 0;
+  }
+
+  .dashboard-sidebar > div[style] {
+    display: none;
+  }
+
+  .sidebar-nav-item {
+    flex: 1;
+    width: auto;
+    max-width: 140px;
+    padding: 6px 10px;
+    gap: 3px;
+    font-size: 0.66rem;
+  }
+
+  .dashboard-main-view {
+    min-width: 0;
+    padding: 20px 16px;
+    gap: 18px;
+  }
+
+  .dashboard-date-strip-row {
+    align-items: flex-start;
+  }
+
+  .date-picker-nav-group {
+    width: 100%;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .week-days-strip {
+    min-width: 0;
+    flex: 1;
+    justify-content: space-around;
+  }
+
+  .day-pill-item {
+    flex: 0 1 44px;
+  }
+
+  .dashboard-safety-banner {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .safety-banner-left {
+    min-width: 0;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .safety-banner-sub {
+    line-height: 1.4;
+  }
+
+  .safety-learn-btn {
+    flex: 0 0 auto;
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .dashboard-filter-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .filter-pills-group {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .meetings-grid-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero-section {
+    padding: 94px 16px 20px;
+  }
+
+  .hero-pill-badge {
+    max-width: 100%;
+    margin-bottom: 18px;
+    font-size: 0.7rem;
+  }
+
+  .hero-title {
+    max-width: 620px;
+    font-size: clamp(2rem, 7vw, 2.8rem);
+    padding: 0;
+  }
+
+  .hero-subtitle {
+    max-width: 540px;
+    font-size: 0.9rem;
+    padding: 0;
+  }
+
+  .hero-cta-group {
+    flex-direction: column;
+    width: min(100%, 320px);
+    gap: 10px;
+    margin-bottom: 30px;
+  }
+
+  .hero-cta-group > button,
+  .hero-cta-group > a,
+  .hero-cta-group .btn-white-pill,
+  .hero-cta-group .btn-glass-pill {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .hero-join-bar {
+    width: min(100%, 440px);
+    border-radius: 16px;
+    padding: 7px;
+  }
+
+  .hero-code-input {
+    min-width: 0;
+    padding-left: 8px;
+    font-size: 0.82rem;
+  }
+
+  .horizon-container {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .horizon-logos {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px 20px;
+    padding: 0 16px;
+  }
+
+  .about-section {
+    padding: 64px 18px;
+  }
+
+  .about-statement {
+    font-size: clamp(1.25rem, 5vw, 1.8rem);
+  }
+
+  .arch-showcase-section {
+    padding: 35px 12px 60px;
+    overflow: hidden;
+  }
+
+  .arch-visual-stage {
+    height: clamp(280px, 82vw, 390px);
+  }
+
+  .arch-tile {
+    width: clamp(42px, 10vw, 58px);
+    height: clamp(42px, 10vw, 58px);
+    border-radius: 12px;
+  }
+
+  .arch-center-copy {
+    max-width: 360px;
+    margin-top: 105px;
+    padding: 0 12px;
+  }
+
+  .arch-heading {
+    font-size: clamp(1.55rem, 6vw, 2rem);
+  }
+
+  .feature-cards-section {
+    padding: 24px 16px 48px;
+  }
+
+  .feature-cards-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .feature-glass-card {
+    min-width: 0;
+  }
+
+  .specs-strip-section {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .specs-strip-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .spec-item {
+    min-width: 0;
+  }
+
+  .bottom-horizon-section {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .meeting-launcher-card {
+    width: 100%;
+    max-width: 560px;
+    padding: 24px 18px;
+  }
+
+  .launcher-inputs {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .launcher-inputs > * {
+    width: 100%;
+  }
+
+  .footer {
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 22px 18px;
+  }
+
+  .footer-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 18px;
+  }
+
+  .footer-copy {
+    width: 100%;
+    text-align: center;
+  }
+
+  .lobby-topbar {
+    padding: 14px 18px;
+  }
+
+  .lobby-content-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+    max-width: 620px;
+    padding: 24px 16px 36px;
+  }
+
+  .lobby-camera-panel,
+  .lobby-join-panel {
+    width: 100%;
+  }
+
+  .lobby-card-glass {
+    padding: 26px 22px;
+  }
+
+  .room-meta-specs {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .meeting-room-container {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 100vh;
+  }
+
+  .meeting-topbar {
+    height: auto;
+    min-height: 58px;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .meeting-topbar-left {
+    min-width: 0;
+    flex: 1;
+    gap: 7px;
+  }
+
+  .meeting-title-box {
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+  }
+
+  .meeting-header-title {
+    max-width: min(42vw, 220px);
+    overflow: hidden;
+    font-size: 0.86rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .meeting-code-badge {
+    font-size: 0.66rem;
+  }
+
+  .meeting-topbar-left > .copy-pill-btn {
+    flex: 0 0 auto;
+    margin-left: 0 !important;
+    padding: 6px 9px;
+  }
+
+  .meeting-topbar-center {
+    flex: 0 0 auto;
+  }
+
+  .duration-pill-badge {
+    padding: 5px 8px;
+  }
+
+  .meeting-stage-viewport {
+    min-height: 0;
+    padding: 12px 10px 100px;
+  }
+
+  .video-tiles-grid {
+    align-content: center;
+    gap: 8px;
+  }
+
+  .tiles-count-2,
+  .tiles-count-3,
+  .tiles-count-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+
+  .tiles-count-5,
+  .tiles-count-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+
+  .video-tile-card {
+    min-width: 0;
+    min-height: 0;
+    aspect-ratio: 4 / 3;
+  }
+
+  .has-screen-share {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 9px;
+  }
+
+  .has-screen-share .screen-share-card {
+    min-height: 0;
+    flex: 1 1 auto;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+
+  .screen-share-side-tiles {
+    width: 100%;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    overscroll-behavior-x: contain;
+  }
+
+  .screen-share-side-tiles .video-tile-card {
+    width: min(36vw, 150px);
+    min-width: min(36vw, 150px);
+  }
+
+  .presenter-stage-card {
+    padding: 16px;
+  }
+
+  .presenter-stage-title {
+    font-size: 1rem;
+  }
+
+  .presenter-stage-subtitle {
+    font-size: 0.78rem;
+  }
+
+  .presenter-actions-row {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .meeting-dock-bar {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: calc(100% - 16px);
+  }
+
+  .dock-controls-group {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 7px 8px;
+    border-radius: 18px;
+  }
+
+  .dock-circle-btn {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+  }
+
+  .dock-separator {
+    display: none;
+  }
+
+  .dock-end-call-btn {
+    min-height: 42px;
+    justify-content: center;
+    padding: 0 12px;
+  }
+
+  .meeting-side-drawer,
+  .meeting-slide-drawer {
+    top: 58px;
+    bottom: 0;
+    width: 100%;
+    border-left: 0;
+  }
+
+  .host-knock-alert-banner {
+    top: 66px;
+    width: calc(100% - 20px);
+    min-width: 0;
+    max-width: none;
+    padding: 10px;
+    gap: 8px;
+    border-radius: 16px;
+  }
+
+  .knock-user-info {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .knock-text-col {
+    min-width: 0;
+  }
+
+  .knock-title-text {
+    flex-wrap: wrap;
+    font-size: 0.76rem;
+  }
+
+  .knock-actions,
+  .knock-actions-group {
+    flex: 0 0 auto;
+  }
+
+  .aura-modal-overlay,
+  .modal-overlay {
+    padding: 14px;
+  }
+
+  .aura-modal-box,
+  .modal-content,
+  .auth-modal-box,
+  .schedule-modal-box {
+    width: min(100%, 440px);
+    max-height: calc(100dvh - 28px);
+    overflow-y: auto;
+  }
+
+  .profile-topbar {
+    padding: 12px 16px;
+  }
+
+  .profile-container {
+    gap: 18px;
+    padding: 24px 16px 44px;
+  }
+
+  .profile-hero-card {
+    padding: 24px 20px;
+    gap: 20px;
+  }
+
+  .profile-identity-info {
+    min-width: 0;
+    gap: 16px;
+  }
+
+  .profile-name-row {
+    flex-wrap: wrap;
+  }
+
+  .profile-display-name {
+    font-size: clamp(1.25rem, 6vw, 1.65rem);
+    overflow-wrap: anywhere;
+  }
+
+  .profile-grid-sections {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .profile-card-glass {
+    min-width: 0;
+    padding: 22px 18px;
+  }
+
+  .profile-form-grid {
+    min-width: 0;
+  }
+
+  .key-input-row {
+    flex-wrap: wrap;
+  }
+
+  .key-input-row .auth-input {
+    min-width: 0;
+  }
+
+  .ended-topbar {
+    padding: 14px 18px;
+  }
+
+  .ended-main-stage {
+    align-items: flex-start;
+    padding: 28px 14px max(32px, env(safe-area-inset-bottom));
+  }
+
+  .ended-glass-card {
+    padding: 30px 20px;
+    border-radius: 22px;
+  }
+
+  .ended-headline {
+    font-size: clamp(1.45rem, 7vw, 1.8rem);
+  }
+
+  .ended-room-sub {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .ended-actions-group {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ended-actions-group .ended-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .navbar {
+    padding: 0 10px;
+  }
+
+  .brand-icon {
+    width: 27px;
+    height: 27px;
+  }
+
+  .nav-brand {
+    font-size: 0.82rem;
+  }
+
+  .nav-actions {
+    gap: 5px;
+  }
+
+  .nav-actions > button {
+    min-height: 36px;
+    padding: 0 9px !important;
+    font-size: 0.7rem !important;
+  }
+
+  .navbar .nav-actions .btn-glass-pill span {
+    display: none;
+  }
+
+  .navbar .nav-actions .btn-glass-pill {
+    width: 36px;
+    justify-content: center;
+    padding: 0 !important;
+  }
+
+  .navbar .nav-actions .nav-user-badge {
+    padding: 3px;
+  }
+
+  .topbar-right-section .icon-round-btn:nth-child(2),
+  .topbar-right-section .upgrade-pill-tag {
+    display: none;
+  }
+
+  .dashboard-sidebar {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .sidebar-nav-item {
+    padding-right: 5px;
+    padding-left: 5px;
+  }
+
+  .safety-learn-btn {
+    max-width: 84px;
+    white-space: normal;
+    font-size: 0.68rem;
+  }
+
+  .hero-title {
+    font-size: clamp(1.8rem, 9vw, 2.35rem);
+  }
+
+  .horizon-logos .logo-item {
+    font-size: 0.68rem;
+  }
+
+  .arch-visual-stage {
+    height: 280px;
+  }
+
+  .arch-center-copy {
+    margin-top: 78px;
+  }
+
+  .arch-tile-badge {
+    display: none;
+  }
+
+  .specs-strip-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .footer {
+    justify-content: center;
+  }
+
+  .footer-left {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .lobby-topbar {
+    padding: 12px 14px;
+  }
+
+  .lobby-card-glass {
+    padding: 22px 16px;
+    border-radius: 18px;
+  }
+
+  .lobby-room-title {
+    font-size: 1.35rem;
+    overflow-wrap: anywhere;
+  }
+
+  .lobby-room-desc {
+    font-size: 0.82rem;
+  }
+
+  .preview-top-badges {
+    top: 8px;
+    left: 8px;
+    gap: 5px;
+  }
+
+  .preview-badge {
+    padding: 4px 7px;
+    font-size: 0.64rem;
+  }
+
+  .meeting-header-title {
+    max-width: 34vw;
+  }
+
+  .meeting-topbar .brand-icon {
+    display: none;
+  }
+
+  .meeting-topbar-left {
+    gap: 6px;
+  }
+
+  .meeting-code-badge {
+    display: none;
+  }
+
+  .meeting-topbar-left > .copy-pill-btn {
+    padding: 6px 7px;
+    font-size: 0.68rem;
+  }
+
+  .duration-pill-badge {
+    gap: 5px;
+    padding: 5px 7px;
+  }
+
+  .timer-text {
+    font-size: 0.72rem;
+  }
+
+  .meeting-stage-viewport {
+    padding-right: 7px;
+    padding-left: 7px;
+  }
+
+  .tiles-count-2 .video-tile-card {
+    aspect-ratio: 3 / 4;
+  }
+
+  .dock-controls-group {
+    gap: 5px;
+  }
+
+  .dock-circle-btn {
+    width: 39px;
+    height: 39px;
+    flex-basis: 39px;
+  }
+
+  .dock-end-call-btn {
+    width: 39px;
+    height: 39px;
+    min-height: 39px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .dock-end-call-btn span {
+    display: none;
+  }
+
+  .dock-end-call-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .delete-meeting-actions {
+    flex-direction: column-reverse;
+  }
+
+  .delete-meeting-actions button {
+    width: 100%;
+  }
+
+  .auth-page-wrapper {
+    justify-content: flex-start;
+    padding: 82px 14px 28px;
+  }
+
+  .auth-top-nav {
+    height: 60px;
+    padding: 0 14px;
+  }
+
+  .auth-card-container {
+    margin-top: 8px;
+  }
+
+  .auth-glass-card {
+    border-radius: 18px;
+  }
+
+  .auth-security-strip {
+    gap: 10px 14px;
+    font-size: 0.68rem;
+  }
+
+  .profile-topbar {
+    padding: 10px 12px;
+  }
+
+  .profile-topbar-left,
+  .profile-topbar-right {
+    gap: 8px;
+  }
+
+  .profile-container {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .profile-hero-card {
+    padding: 20px 16px;
+  }
+
+  .profile-identity-info {
+    align-items: center;
+  }
+
+  .profile-avatar-img {
+    width: 76px;
+    height: 76px;
+  }
+
+  .profile-meta-chips {
+    flex-wrap: wrap;
+  }
+
+  .profile-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .profile-stat-box {
+    min-width: 0;
+    gap: 9px;
+    padding: 13px 10px;
+  }
+
+  .stat-icon-wrapper {
+    width: 36px;
+    height: 36px;
+  }
+
+  .stat-val-text {
+    font-size: 1.05rem;
+  }
+
+  .stat-label-text {
+    font-size: 0.68rem;
+  }
+
+  .ended-topbar {
+    padding: 12px;
+  }
+
+  .ended-main-stage {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .ended-glass-card {
+    padding: 26px 16px;
+  }
+
+  .ended-meta-strip {
+    gap: 8px;
+  }
+
+  .ended-meta-pill {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .dashboard-topbar {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  .dashboard-brand-title {
+    font-size: 0.98rem;
+  }
+
+  .topbar-right-section {
+    gap: 4px;
+  }
+
+  .icon-round-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .upgrade-pill-tag {
+    padding: 5px 7px;
+  }
+
+  .week-days-strip {
+    gap: 1px;
+  }
+
+  .day-pill-item {
+    width: 37px;
+  }
+
+  .filter-pills-group {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .filter-tab-pill {
+    padding: 6px 10px;
+  }
+
+  .dock-controls-group {
+    gap: 3px;
+    padding-right: 5px;
+    padding-left: 5px;
+  }
+
+  .dock-circle-btn {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .dock-end-call-btn {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+  .meeting-topbar {
+    min-height: 48px;
+  }
+
+  .meeting-stage-viewport {
+    padding-bottom: 78px;
+  }
+
+  .video-tiles-grid:not(.has-screen-share) .video-tile-card {
+    max-height: calc(100dvh - 140px);
+    aspect-ratio: 16 / 9;
+  }
+
+  .meeting-dock-bar {
+    bottom: max(4px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

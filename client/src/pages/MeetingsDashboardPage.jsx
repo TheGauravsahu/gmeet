@@ -11,7 +11,11 @@ import DashboardSafetyBanner from '../components/dashboard/DashboardSafetyBanner
 import DashboardFilterBar from '../components/dashboard/DashboardFilterBar';
 import MeetingCard from '../components/dashboard/MeetingCard';
 import DashboardEmptyState from '../components/dashboard/DashboardEmptyState';
-import { MeetingForLaterModal, SafetyModal } from '../components/dashboard/DashboardModals';
+import {
+  ConfirmDeleteMeetingModal,
+  MeetingForLaterModal,
+  SafetyModal,
+} from '../components/dashboard/DashboardModals';
 import '../styles/Dashboard.css';
 
 export default function MeetingsDashboardPage() {
@@ -34,6 +38,9 @@ export default function MeetingsDashboardPage() {
   const [laterModalOpen, setLaterModalOpen] = useState(false);
   const [createdLaterRoom, setCreatedLaterRoom] = useState(null);
   const [safetyModalOpen, setSafetyModalOpen] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState(null);
+  const [deletingRoomCode, setDeletingRoomCode] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Fetch user meetings
@@ -143,20 +150,30 @@ export default function MeetingsDashboardPage() {
   // Delete a room
   const handleDeleteRoom = async (roomCode, e) => {
     e.stopPropagation();
-    if (!window.confirm(`Delete meeting #${roomCode}?`)) return;
+    setDeleteError('');
+    setRoomToDelete(rooms.find((room) => room.roomCode === roomCode) || { roomCode });
+  };
 
+  const confirmDeleteRoom = async () => {
+    if (!roomToDelete || deletingRoomCode) return;
+    const roomCode = roomToDelete.roomCode;
+    setDeletingRoomCode(roomCode);
+    setDeleteError('');
     try {
       await api.rooms.deleteRoom(roomCode);
       setRooms((prev) => prev.filter((r) => r.roomCode !== roomCode));
+      setRoomToDelete(null);
     } catch (err) {
-      alert(`Could not delete meeting: ${err.message}`);
+      setDeleteError(`Could not delete this meeting: ${err.message}`);
+    } finally {
+      setDeletingRoomCode('');
     }
   };
 
   // Copy meeting link
   const handleCopyLink = (code, e) => {
     e?.stopPropagation();
-    const url = `${window.location.origin}/meet/${code}`;
+    const url = `${window.location.origin}/lobby/${code}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
@@ -282,6 +299,19 @@ export default function MeetingsDashboardPage() {
       <SafetyModal
         isOpen={safetyModalOpen}
         onClose={() => setSafetyModalOpen(false)}
+      />
+
+      <ConfirmDeleteMeetingModal
+        room={roomToDelete}
+        isDeleting={Boolean(deletingRoomCode)}
+        error={deleteError}
+        onClose={() => {
+          if (!deletingRoomCode) {
+            setRoomToDelete(null);
+            setDeleteError('');
+          }
+        }}
+        onConfirm={confirmDeleteRoom}
       />
     </div>
   );

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Video, Calendar, Plus, LogIn } from 'lucide-react';
+import React, { useState } from 'react';
+import { Video, Calendar, Plus, LogIn, Menu, X } from 'lucide-react';
 
 export default function LandingNav({
   isAuthenticated,
@@ -9,6 +9,8 @@ export default function LandingNav({
   onNavigate,
   onOpenScheduleModal,
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <nav className="navbar">
       <div className="nav-brand" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
@@ -18,20 +20,37 @@ export default function LandingNav({
         <span className="brand-text">AURA.MEET</span>
       </div>
 
-      <ul className="nav-links">
-        <li><a href="#hero" className="nav-link active">Home</a></li>
+      <button
+        className="mobile-nav-toggle"
+        type="button"
+        aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-expanded={mobileMenuOpen}
+        aria-controls="landing-navigation-links"
+        onClick={() => setMobileMenuOpen((open) => !open)}
+      >
+        {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      <ul
+        id="landing-navigation-links"
+        className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`}
+      >
+        <li><a href="#hero" className="nav-link active" onClick={() => setMobileMenuOpen(false)}>Home</a></li>
         <li>
           <button
-            onClick={() => onNavigate('/home')}
+            onClick={() => {
+              setMobileMenuOpen(false);
+              onNavigate('/home');
+            }}
             className="nav-link"
             style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }}
           >
             Meetings
           </button>
         </li>
-        <li><a href="#features" className="nav-link">Features</a></li>
-        <li><a href="#security" className="nav-link">Security</a></li>
-        <li><a href="#specs" className="nav-link">Specs</a></li>
+        <li><a href="#features" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Features</a></li>
+        <li><a href="#security" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Security</a></li>
+        <li><a href="#specs" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Specs</a></li>
       </ul>
 
       <div className="nav-actions">

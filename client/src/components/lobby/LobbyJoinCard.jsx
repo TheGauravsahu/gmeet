@@ -12,9 +12,11 @@ import {
 export default function LobbyJoinCard({
   roomCode,
   roomData,
+  user,
+  loading,
+  participantName,
+  onParticipantNameChange,
   error,
-  inputName,
-  setInputName,
   joining,
   waitingForApproval,
   deniedMessage,
@@ -38,7 +40,7 @@ export default function LobbyJoinCard({
 
         <p className="lobby-room-desc">
           {roomData?.description ||
-            `You are about to enter meeting #${roomCode}. Host approval is required before joining.`}
+            `You are about to enter meeting #${roomCode}. You may need host approval before joining.`}
         </p>
 
         {error ? (
@@ -80,26 +82,40 @@ export default function LobbyJoinCard({
             </button>
           </div>
         ) : (
-          /* State 3: Normal Form to Ask to Join */
+          /* State 3: Join Info */
           <form onSubmit={onJoin} className="lobby-join-form">
-            <div className="form-group" style={{ marginBottom: 18 }}>
-              <label className="form-label">What's your name?</label>
-              <input
-                type="text"
-                required
-                placeholder="Enter your name"
-                className="auth-input"
-                value={inputName}
-                onChange={(e) => setInputName(e.target.value)}
-              />
-            </div>
+            {user ? (
+              <div className="lobby-join-identity">
+                <div className="lobby-join-avatar">
+                  {(user.name || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="lobby-join-identity-copy">
+                  <span className="lobby-join-identity-label">Joining as</span>
+                  <span className="lobby-join-identity-name">{user.name}</span>
+                  <span className="lobby-join-identity-email">{user.email}</span>
+                </div>
+              </div>
+            ) : (
+              <label className="lobby-guest-name-field">
+                <span>Your name</span>
+                <input
+                  type="text"
+                  value={participantName}
+                  onChange={(event) => onParticipantNameChange(event.target.value)}
+                  placeholder="Enter your name"
+                  maxLength={40}
+                  autoComplete="name"
+                  required
+                />
+              </label>
+            )}
 
             <button
               type="submit"
-              disabled={joining || (roomData && roomData.status === 'ended')}
+              disabled={loading || joining || Boolean(error) || roomData?.status === 'ended'}
               className="btn-pill-primary join-meeting-main-btn"
             >
-              <span>{joining ? 'Connecting...' : 'Ask to Join / Join Now'}</span>
+              <span>{loading ? 'Loading meeting…' : joining ? 'Connecting...' : 'Join Meeting'}</span>
               <ArrowRight size={18} />
             </button>
           </form>
@@ -107,7 +123,7 @@ export default function LobbyJoinCard({
 
         {/* Meeting link copy box */}
         <div className="modal-link-box" style={{ marginTop: 20 }}>
-          <span className="code-text">{window.location.origin}/meet/{roomCode}</span>
+          <span className="code-text">{window.location.origin}/lobby/{roomCode}</span>
           <button className="copy-pill-btn" onClick={onCopyLink}>
             {copiedLink ? <Check size={14} /> : <Copy size={14} />}
             <span>{copiedLink ? 'Copied' : 'Copy'}</span>

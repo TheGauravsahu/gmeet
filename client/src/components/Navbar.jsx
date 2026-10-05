@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Video, Plus, Calendar, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { Video, Plus, Calendar, LogIn, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import AuthModal from './AuthModal';
@@ -14,6 +14,7 @@ export default function Navbar() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleStartInstantMeeting = async () => {
     try {
@@ -46,13 +47,28 @@ export default function Navbar() {
         </div>
 
         {isHome && (
-          <ul className="nav-links">
-            <li><a href="#hero" className="nav-link active">Home</a></li>
-            <li><a href="#about" className="nav-link">About</a></li>
-            <li><a href="#features" className="nav-link">Features</a></li>
-            <li><a href="#security" className="nav-link">Security</a></li>
-            <li><a href="#specs" className="nav-link">Specs</a></li>
-          </ul>
+          <>
+            <button
+              className="mobile-nav-toggle"
+              type="button"
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="app-navigation-links"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <ul
+              id="app-navigation-links"
+              className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`}
+            >
+              <li><a href="#hero" className="nav-link active" onClick={() => setMobileMenuOpen(false)}>Home</a></li>
+              <li><a href="#about" className="nav-link" onClick={() => setMobileMenuOpen(false)}>About</a></li>
+              <li><a href="#features" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Features</a></li>
+              <li><a href="#security" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Security</a></li>
+              <li><a href="#specs" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Specs</a></li>
+            </ul>
+          </>
         )}
 
         <div className="nav-actions">

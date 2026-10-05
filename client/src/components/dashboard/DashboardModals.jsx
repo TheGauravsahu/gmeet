@@ -1,5 +1,13 @@
-import React from 'react';
-import { X, Link as LinkIcon, Check, Copy, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import {
+  X,
+  Link as LinkIcon,
+  Check,
+  Copy,
+  ShieldCheck,
+  Trash2,
+  AlertCircle,
+} from 'lucide-react';
 
 export function MeetingForLaterModal({
   isOpen,
@@ -31,7 +39,7 @@ export function MeetingForLaterModal({
 
         <div className="modal-link-box" style={{ margin: '18px 0' }}>
           <span className="code-text">
-            {window.location.origin}/meet/{createdRoom.roomCode}
+            {window.location.origin}/lobby/{createdRoom.roomCode}
           </span>
           <button
             className="copy-pill-btn"
@@ -51,6 +59,79 @@ export function MeetingForLaterModal({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+export function ConfirmDeleteMeetingModal({
+  room,
+  isDeleting,
+  error,
+  onClose,
+  onConfirm,
+}) {
+  const cancelButtonRef = useRef(null);
+
+  useEffect(() => {
+    if (!room) return undefined;
+    cancelButtonRef.current?.focus();
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !isDeleting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [room, isDeleting, onClose]);
+
+  if (!room) return null;
+
+  return (
+    <div className="aura-modal-overlay delete-meeting-overlay" onClick={isDeleting ? undefined : onClose}>
+      <section
+        className="aura-modal-box delete-meeting-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-meeting-title"
+        aria-describedby="delete-meeting-description"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="delete-meeting-icon">
+          <Trash2 size={22} />
+        </div>
+        <h2 id="delete-meeting-title">Delete this meeting?</h2>
+        <p id="delete-meeting-description">
+          <strong>{room.title || `Meeting #${room.roomCode}`}</strong> will be permanently removed.
+          This action can’t be undone.
+        </p>
+        {error && (
+          <div className="delete-meeting-error" role="alert">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+        <div className="delete-meeting-actions">
+          <button
+            ref={cancelButtonRef}
+            className="delete-meeting-cancel"
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+          >
+            Cancel
+          </button>
+          <button
+            className="delete-meeting-confirm"
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+          >
+            <Trash2 size={15} />
+            {isDeleting ? 'Deleting…' : 'Delete meeting'}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

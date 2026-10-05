@@ -224,6 +224,82 @@
   box-shadow: 0 0 25px rgba(124, 58, 237, 0.7);
 }
 
+.lobby-join-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+}
+
+.lobby-join-avatar {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  border-radius: 50%;
+  font-size: 1.15rem;
+  font-weight: 600;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.4);
+}
+
+.lobby-join-identity-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lobby-join-identity-label,
+.lobby-join-identity-email {
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lobby-join-identity-name {
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lobby-guest-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.lobby-guest-name-field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 13px;
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.lobby-guest-name-field input:focus {
+  outline: 2px solid rgba(168, 85, 247, 0.65);
+  outline-offset: 2px;
+}
+
 .room-meta-specs {
   display: flex;
   align-items: center;
@@ -462,6 +538,107 @@
   align-items: center;
   gap: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Google Meet Presenter Card Style */
+.presenter-stage-card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, #181928 0%, #0d0e17 100%);
+  padding: 32px;
+  text-align: center;
+  position: relative;
+  z-index: 5;
+}
+
+.presenter-icon-box {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: rgba(139, 92, 246, 0.15);
+  border: 2px solid rgba(139, 92, 246, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a78bfa;
+  margin-bottom: 20px;
+  box-shadow: 0 0 35px rgba(139, 92, 246, 0.3);
+  animation: pulse-glow 3s infinite alternate;
+}
+
+@keyframes pulse-glow {
+  0% { transform: scale(1); box-shadow: 0 0 25px rgba(139, 92, 246, 0.2); }
+  100% { transform: scale(1.05); box-shadow: 0 0 45px rgba(139, 92, 246, 0.45); }
+}
+
+.presenter-stage-title {
+  color: #f1f5f9;
+  font-size: 1.55rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.presenter-stage-subtitle {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  max-width: 420px;
+  line-height: 1.5;
+  margin: 0 0 24px 0;
+}
+
+.presenter-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stop-presenting-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ea4335;
+  color: #fff;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 28px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(234, 67, 53, 0.4);
+}
+
+.stop-presenting-pill:hover {
+  background: #d93025;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(234, 67, 53, 0.55);
+}
+
+.view-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 10px 20px;
+  border-radius: 28px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-preview-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .screen-share-side-tiles {
@@ -2322,5 +2499,4 @@
   border: 1px solid rgba(59, 130, 246, 0.35);
   color: #93c5fd;
 }
-
 

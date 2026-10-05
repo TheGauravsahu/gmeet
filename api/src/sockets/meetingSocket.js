@@ -12,53 +12,14 @@ export const setupMeetingSocket = (io) => {
   // Active meeting hosts: roomCode -> hostSocketId
   const roomHosts = new Map();
 
-  // Pending knocking guests waiting for host approval: roomCode -> Array<{ socketId, displayName, avatar, user }>
+  // Pending knocking participants waiting for host approval: roomCode -> Array<{ socketId, displayName, email, avatar, userId, user }>
   const pendingKnocks = new Map();
 
   // Set of approved socket IDs per room: roomCode -> Set<socketId>
   const roomAdmittedSockets = new Map();
 
-  // Sequential guest naming per room: roomCode -> count
-  const roomGuestCounters = new Map();
-  const socketAssignedGuestNames = new Map();
-
-  /**
-   * Automatically assigns sequential guest names ("Guest 1", "Guest 2"...)
-   * to visitors without custom accounts or with default names
-   */
-  const resolveGuestDisplayName = (roomCode, socketId, user = {}, isHost = false) => {
-    if (isHost) {
-      return (user.displayName || '').trim() || 'Host';
-    }
-
-    const rawName = (user.displayName || '').trim();
-    const lower = rawName.toLowerCase();
-    const isGeneric =
-      !rawName ||
-      lower === 'guest' ||
-      lower === 'guest participant' ||
-      lower === 'you' ||
-      /^guest\s*\d*$/i.test(lower);
-
-    // If socket already has an assigned name for this room session, preserve it
-    if (socketAssignedGuestNames.has(socketId)) {
-      return socketAssignedGuestNames.get(socketId);
-    }
-
-    // If user provided a genuine custom name
-    if (!isGeneric) {
-      socketAssignedGuestNames.set(socketId, rawName);
-      return rawName;
-    }
-
-    // Assign sequential "Guest 1", "Guest 2", etc.
-    const currentCount = (roomGuestCounters.get(roomCode) || 0) + 1;
-    roomGuestCounters.set(roomCode, currentCount);
-    const assignedName = `Guest ${currentCount}`;
-    socketAssignedGuestNames.set(socketId, assignedName);
-    logger.info(`Assigned auto guest name '${assignedName}' to socket ${socketId} in room ${roomCode}`);
-    return assignedName;
-  };
+  // Set of approved User IDs per room: roomCode -> Set<userId>
+  const roomAdmittedUserIds = new Map();
 
   io.on('connection', (socket) => {
     logger.info(`Socket connected: ${socket.id}`);
@@ -80,30 +41,32 @@ export const setupMeetingSocket = (io) => {
      * Helper to check if a joining user is the authentic host of a room
      */
     const checkIsHost = async (roomCode, user = {}) => {
-      if (user.isHost === true) return true;
-
       try {
         const room = await Room.findOne({ roomCode });
-        if (room) {
-          if (room.hostName && user.displayName) {
-            if (room.hostName.trim().toLowerCase() === user.displayName.trim().toLowerCase()) {
-              return true;
-            }
-          }
-          if (room.host && user.userId && room.host.toString() === user.userId.toString()) {
+        if (room && room.host) {
+          // If room was created by an authenticated user, only that user can be host
+          const currentUserId = user.userId ? user.userId.toString() : '';
+          const roomHostId = room.host.toString();
+          if (currentUserId && currentUserId === roomHostId) {
             return true;
           }
-          // Room exists in DB with specific host, and this user does not match
           return false;
         }
+
+        // If room was created with hostName
+        if (room && room.hostName && user.displayName) {
+          if (room.hostName.trim().toLowerCase() === user.displayName.trim().toLowerCase()) {
+            return true;
+          }
+        }
+
+        // Ad-hoc room (not in DB): first socket to enter becomes host
+        const activeHostId = getActiveHostSocketId(roomCode);
+        return !activeHostId;
       } catch (err) {
         logger.error(`Error querying room host: ${err.message}`);
+        return false;
       }
-
-      // If room not in DB, first socket in room becomes host
-      const activeHost = getActiveHostSocketId(roomCode);
-      if (!activeHost) return true;
-      return activeHost === socket.id;
     };
 
     /**
@@ -124,62 +87,90 @@ export const setupMeetingSocket = (io) => {
         }
         roomAdmittedSockets.get(roomCode).add(socket.id);
 
+        if (user.userId) {
+          if (!roomAdmittedUserIds.has(roomCode)) {
+            roomAdmittedUserIds.set(roomCode, new Set());
+          }
+          roomAdmittedUserIds.get(roomCode).add(user.userId.toString());
+        }
+
         logger.info(`Socket ${socket.id} (${user.displayName || 'Host'}) verified as Host for room ${roomCode}`);
-        socket.emit('join-approved', { isHost: true });
+        socket.emit('join-approved', { isHost: true, assignedName: user.displayName || 'Host' });
         return;
       }
 
-      // Check if this specific socket is already admitted
-      const assignedName = resolveGuestDisplayName(roomCode, socket.id, user, false);
-      user.displayName = assignedName;
+      const currentUserId = user.userId ? user.userId.toString() : '';
+      const admittedUserSet = roomAdmittedUserIds.get(roomCode);
+      const admittedSocketSet = roomAdmittedSockets.get(roomCode);
+      const isApproved =
+        (admittedSocketSet && admittedSocketSet.has(socket.id)) ||
+        (currentUserId && admittedUserSet && admittedUserSet.has(currentUserId));
 
-      const admittedSet = roomAdmittedSockets.get(roomCode);
-      if (admittedSet && admittedSet.has(socket.id)) {
-        socket.emit('join-approved', { isHost: false, assignedName });
+      if (isApproved) {
+        if (!roomAdmittedSockets.has(roomCode)) {
+          roomAdmittedSockets.set(roomCode, new Set());
+        }
+        roomAdmittedSockets.get(roomCode).add(socket.id);
+        socket.emit('join-approved', { isHost: false, assignedName: user.displayName || 'Participant' });
         return;
       }
 
-      // Guest must wait for host approval!
+      // Participant must wait for host approval!
       const activeHostId = getActiveHostSocketId(roomCode);
 
-      const guestInfo = {
+      const participantInfo = {
         socketId: socket.id,
-        displayName: assignedName,
+        displayName: user.displayName || user.name || 'Participant',
+        email: user.email || '',
         avatar: user.avatar || '',
+        userId: currentUserId,
         user,
       };
 
       const knocks = pendingKnocks.get(roomCode) || [];
-      if (!knocks.some((k) => k.socketId === socket.id)) {
-        knocks.push(guestInfo);
+      if (!knocks.some((k) => k.socketId === socket.id || (currentUserId && k.userId === currentUserId))) {
+        knocks.push(participantInfo);
         pendingKnocks.set(roomCode, knocks);
       }
 
-      logger.info(`Guest ${guestInfo.displayName} (${socket.id}) knocking for room ${roomCode}`);
+      logger.info(`User ${participantInfo.displayName} (${socket.id}) knocking for room ${roomCode}`);
 
-      // Tell guest to wait
+      // Tell participant to wait
       socket.emit('waiting-for-host', {
         message: activeHostId
           ? 'Waiting for the meeting host to let you in...'
           : 'Waiting for the meeting host to start the call...',
       });
 
-      // Notify host of knocking guest
+      // Notify host of knocking participant
       if (activeHostId) {
-        io.to(activeHostId).emit('guest-knocking', guestInfo);
+        io.to(activeHostId).emit('guest-knocking', participantInfo);
         io.to(activeHostId).emit('pending-knocks-updated', knocks);
       }
     });
 
+    socket.on('cancel-join-request', ({ roomCode: rawCode } = {}) => {
+      const roomCode = normalizeRoomCode(rawCode);
+      if (!roomCode) return;
+
+      const knocks = pendingKnocks.get(roomCode) || [];
+      const updatedKnocks = knocks.filter((entry) => entry.socketId !== socket.id);
+      if (updatedKnocks.length === knocks.length) return;
+
+      pendingKnocks.set(roomCode, updatedKnocks);
+      const activeHostId = getActiveHostSocketId(roomCode);
+      if (activeHostId) {
+        io.to(activeHostId).emit('pending-knocks-updated', updatedKnocks);
+      }
+    });
+
     /**
-     * Helper: Complete entering a room for any socket (host or approved guest)
+     * Helper: Complete entering a room for any socket (host or approved participant)
      */
     const enterRoom = async (targetSocket, roomCode, user = {}, isHost = false) => {
       targetSocket.join(roomCode);
 
-      const effectiveName = isHost
-        ? ((user.displayName || '').trim() || 'Host')
-        : resolveGuestDisplayName(roomCode, targetSocket.id, user, false);
+      const effectiveName = (user.displayName || user.name || (isHost ? 'Host' : 'Participant')).trim();
       user.displayName = effectiveName;
 
       logger.info(`Socket ${targetSocket.id} (${effectiveName}, Host: ${isHost}) entered room: ${roomCode}`);
@@ -265,9 +256,9 @@ export const setupMeetingSocket = (io) => {
     };
 
     /**
-     * 2. Host Admits a Knocking Guest
+     * 2. Host Admits a Knocking Participant
      */
-    socket.on('admit-guest', async ({ roomCode: rawCode, guestSocketId, displayName }) => {
+    socket.on('admit-guest', async ({ roomCode: rawCode, guestSocketId, displayName, userId }) => {
       const roomCode = normalizeRoomCode(rawCode);
       if (!roomCode || !guestSocketId) return;
 
@@ -283,16 +274,24 @@ export const setupMeetingSocket = (io) => {
       }
       roomAdmittedSockets.get(roomCode).add(guestSocketId);
 
-      // Remove from pending knocks
       let knocks = pendingKnocks.get(roomCode) || [];
+      const knockingEntry = knocks.find((k) => k.socketId === guestSocketId);
+      const admittedUserId = userId || knockingEntry?.userId;
+      if (admittedUserId) {
+        if (!roomAdmittedUserIds.has(roomCode)) {
+          roomAdmittedUserIds.set(roomCode, new Set());
+        }
+        roomAdmittedUserIds.get(roomCode).add(admittedUserId.toString());
+      }
+
       knocks = knocks.filter((k) => k.socketId !== guestSocketId);
       pendingKnocks.set(roomCode, knocks);
 
-      const assignedName = socketAssignedGuestNames.get(guestSocketId) || displayName || 'Guest';
+      const assignedName = displayName || knockingEntry?.displayName || 'Participant';
 
-      logger.info(`Host ${socket.id} admitted guest ${guestSocketId} (${assignedName}) to room ${roomCode}`);
+      logger.info(`Host ${socket.id} admitted participant ${guestSocketId} (${assignedName}) to room ${roomCode}`);
 
-      // Notify guest that they are approved (they will emit join-room from MeetingRoomPage)
+      // Notify participant that they are approved
       io.to(guestSocketId).emit('join-approved', { isHost: false, assignedName });
 
       // Update host pending list
@@ -300,7 +299,7 @@ export const setupMeetingSocket = (io) => {
     });
 
     /**
-     * 3. Host Admits All Pending Guests
+     * 3. Host Admits All Pending Participants
      */
     socket.on('admit-all-guests', async ({ roomCode: rawCode }) => {
       const roomCode = normalizeRoomCode(rawCode);
@@ -315,19 +314,25 @@ export const setupMeetingSocket = (io) => {
       }
       const admittedSet = roomAdmittedSockets.get(roomCode);
 
+      if (!roomAdmittedUserIds.has(roomCode)) {
+        roomAdmittedUserIds.set(roomCode, new Set());
+      }
+      const admittedUserSet = roomAdmittedUserIds.get(roomCode);
+
       for (const k of knocks) {
         admittedSet.add(k.socketId);
-        const assignedName = socketAssignedGuestNames.get(k.socketId) || k.displayName || 'Guest';
+        if (k.userId) admittedUserSet.add(k.userId.toString());
+        const assignedName = k.displayName || 'Participant';
         io.to(k.socketId).emit('join-approved', { isHost: false, assignedName });
       }
 
       pendingKnocks.set(roomCode, []);
       socket.emit('pending-knocks-updated', []);
-      logger.info(`Host ${socket.id} admitted all guests to room ${roomCode}`);
+      logger.info(`Host ${socket.id} admitted all participants to room ${roomCode}`);
     });
 
     /**
-     * 4. Host Denies a Knocking Guest
+     * 4. Host Denies a Knocking Participant
      */
     socket.on('deny-guest', ({ roomCode: rawCode, guestSocketId }) => {
       const roomCode = normalizeRoomCode(rawCode);
@@ -340,9 +345,9 @@ export const setupMeetingSocket = (io) => {
       knocks = knocks.filter((k) => k.socketId !== guestSocketId);
       pendingKnocks.set(roomCode, knocks);
 
-      logger.info(`Host ${socket.id} denied guest ${guestSocketId} for room ${roomCode}`);
+      logger.info(`Host ${socket.id} denied participant ${guestSocketId} for room ${roomCode}`);
 
-      // Notify guest
+      // Notify participant
       io.to(guestSocketId).emit('join-denied', {
         message: 'The meeting host has denied your request to join.',
       });
@@ -367,30 +372,41 @@ export const setupMeetingSocket = (io) => {
           roomAdmittedSockets.set(roomCode, new Set());
         }
         roomAdmittedSockets.get(roomCode).add(socket.id);
+
+        if (user.userId) {
+          if (!roomAdmittedUserIds.has(roomCode)) {
+            roomAdmittedUserIds.set(roomCode, new Set());
+          }
+          roomAdmittedUserIds.get(roomCode).add(user.userId.toString());
+        }
+
         await enterRoom(socket, roomCode, user, true);
         return;
       }
 
-      // Guest: Verify if admitted by host
-      const assignedName = resolveGuestDisplayName(roomCode, socket.id, user, false);
-      user.displayName = assignedName;
-
-      const admittedSet = roomAdmittedSockets.get(roomCode);
-      const isApproved = admittedSet && admittedSet.has(socket.id);
+      // Check if participant was admitted by host
+      const currentUserId = user.userId ? user.userId.toString() : '';
+      const admittedUserSet = roomAdmittedUserIds.get(roomCode);
+      const admittedSocketSet = roomAdmittedSockets.get(roomCode);
+      const isApproved =
+        (admittedSocketSet && admittedSocketSet.has(socket.id)) ||
+        (currentUserId && admittedUserSet && admittedUserSet.has(currentUserId));
 
       if (!isApproved) {
-        logger.info(`Unapproved join attempt by ${socket.id} (${assignedName}) for room ${roomCode}`);
-
-        const guestInfo = {
+        const participantInfo = {
           socketId: socket.id,
-          displayName: assignedName,
+          displayName: user.displayName || user.name || 'Participant',
+          email: user.email || '',
           avatar: user.avatar || '',
+          userId: currentUserId,
           user,
         };
 
+        logger.info(`Unapproved join attempt by ${socket.id} (${participantInfo.displayName}) for room ${roomCode}`);
+
         const knocks = pendingKnocks.get(roomCode) || [];
-        if (!knocks.some((k) => k.socketId === socket.id)) {
-          knocks.push(guestInfo);
+        if (!knocks.some((k) => k.socketId === socket.id || (currentUserId && k.userId === currentUserId))) {
+          knocks.push(participantInfo);
           pendingKnocks.set(roomCode, knocks);
         }
 
@@ -403,33 +419,39 @@ export const setupMeetingSocket = (io) => {
         });
 
         if (activeHostId) {
-          io.to(activeHostId).emit('guest-knocking', guestInfo);
+          io.to(activeHostId).emit('guest-knocking', participantInfo);
           io.to(activeHostId).emit('pending-knocks-updated', knocks);
         }
         return;
       }
 
-      // Admitted guest joins room
+      // Admitted participant joins room
+      if (!roomAdmittedSockets.has(roomCode)) {
+        roomAdmittedSockets.set(roomCode, new Set());
+      }
+      roomAdmittedSockets.get(roomCode).add(socket.id);
       await enterRoom(socket, roomCode, user, false);
     });
 
     /**
      * WebRTC Signaling: Offer
      */
-    socket.on('webrtc-offer', ({ targetSocketId, offer }) => {
+    socket.on('webrtc-offer', (data = {}) => {
+      const { targetSocketId, ...rest } = data;
       io.to(targetSocketId).emit('webrtc-offer', {
         callerSocketId: socket.id,
-        offer,
+        ...rest,
       });
     });
 
     /**
      * WebRTC Signaling: Answer
      */
-    socket.on('webrtc-answer', ({ targetSocketId, answer }) => {
+    socket.on('webrtc-answer', (data = {}) => {
+      const { targetSocketId, ...rest } = data;
       io.to(targetSocketId).emit('webrtc-answer', {
         responderSocketId: socket.id,
-        answer,
+        ...rest,
       });
     });
 
@@ -446,7 +468,7 @@ export const setupMeetingSocket = (io) => {
     /**
      * Participant Audio / Video / Screen toggle
      */
-    socket.on('toggle-media-state', async ({ isAudioMuted, isVideoMuted, isScreenSharing }) => {
+    socket.on('toggle-media-state', async ({ isAudioMuted, isVideoMuted, isScreenSharing, screenTrackId }) => {
       const reg = socketRegistry.get(socket.id);
       if (!reg) return;
 
@@ -459,6 +481,7 @@ export const setupMeetingSocket = (io) => {
         isAudioMuted: reg.isAudioMuted,
         isVideoMuted: reg.isVideoMuted,
         isScreenSharing: reg.isScreenSharing,
+        screenTrackId,
       });
 
       if (reg.participantId) {
@@ -718,36 +741,21 @@ export const setupMeetingSocket = (io) => {
 
       socket.leave(roomCode);
 
-      // If host left, designate next participant in room as new host
-      if (isHost || roomHosts.get(roomCode) === socket.id) {
-        const remainingSockets = Array.from(io.sockets.adapter.rooms.get(roomCode) || [])
-          .filter((id) => id !== socket.id);
-
-        if (remainingSockets.length > 0) {
-          const nextHostId = remainingSockets[0];
-          roomHosts.set(roomCode, nextHostId);
-          const nextReg = socketRegistry.get(nextHostId);
-          if (nextReg) nextReg.isHost = true;
-          io.to(nextHostId).emit('host-status', { isHost: true });
-          io.to(nextHostId).emit('pending-knocks-updated', pendingKnocks.get(roomCode) || []);
-          logger.info(`Transferred Host role for room ${roomCode} to socket ${nextHostId}`);
-        } else {
-          roomHosts.delete(roomCode);
-          pendingKnocks.delete(roomCode);
-          roomAdmittedSockets.delete(roomCode);
-          roomGuestCounters.delete(roomCode);
-        }
-      } else {
-        const remainingSockets = Array.from(io.sockets.adapter.rooms.get(roomCode) || [])
-          .filter((id) => id !== socket.id);
-        if (remainingSockets.length === 0) {
-          roomHosts.delete(roomCode);
-          pendingKnocks.delete(roomCode);
-          roomAdmittedSockets.delete(roomCode);
-          roomGuestCounters.delete(roomCode);
-        }
+      // If host socket disconnected, clear active host socket reference
+      if (roomHosts.get(roomCode) === socket.id) {
+        roomHosts.delete(roomCode);
+        logger.info(`Host socket ${socket.id} disconnected from room ${roomCode}`);
       }
-      socketAssignedGuestNames.delete(socket.id);
+
+      const remainingSockets = Array.from(io.sockets.adapter.rooms.get(roomCode) || [])
+        .filter((id) => id !== socket.id);
+
+      if (remainingSockets.length === 0) {
+        roomHosts.delete(roomCode);
+        pendingKnocks.delete(roomCode);
+        roomAdmittedSockets.delete(roomCode);
+        roomAdmittedUserIds.delete(roomCode);
+      }
 
       // Update participant in MongoDB
       if (participantId) {

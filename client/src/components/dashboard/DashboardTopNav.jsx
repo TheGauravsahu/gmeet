@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useRef, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Video,
   Keyboard,
@@ -12,7 +12,7 @@ import {
   Sparkles,
   Shield,
   LogOut,
-} from 'lucide-react';
+} from "lucide-react";
 
 export default function DashboardTopNav({
   displayName,
@@ -38,8 +38,8 @@ export default function DashboardTopNav({
         setNewMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [setNewMenuOpen]);
 
   return (
@@ -68,7 +68,7 @@ export default function DashboardTopNav({
           <button
             type="submit"
             disabled={!codeOrLink.trim()}
-            className={`quick-code-btn ${codeOrLink.trim() ? 'active' : ''}`}
+            className={`quick-code-btn ${codeOrLink.trim() ? "active" : ""}`}
           >
             Join
           </button>
@@ -92,8 +92,10 @@ export default function DashboardTopNav({
               >
                 <Zap size={16} className="menu-item-icon" />
                 <div>
-                  <div style={{ fontWeight: 600 }}>Start an instant meeting</div>
-                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                  <div style={{ fontWeight: 600 }}>
+                    Start an instant meeting
+                  </div>
+                  <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
                     Jump directly into video call
                   </div>
                 </div>
@@ -105,8 +107,10 @@ export default function DashboardTopNav({
               >
                 <LinkIcon size={16} className="menu-item-icon" />
                 <div>
-                  <div style={{ fontWeight: 600 }}>Create a meeting for later</div>
-                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                  <div style={{ fontWeight: 600 }}>
+                    Create a meeting for later
+                  </div>
+                  <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
                     Get a link you can share
                   </div>
                 </div>
@@ -122,7 +126,7 @@ export default function DashboardTopNav({
                 <Calendar size={16} className="menu-item-icon" />
                 <div>
                   <div style={{ fontWeight: 600 }}>Schedule in Calendar</div>
-                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                  <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
                     Set topic, date, and time
                   </div>
                 </div>
@@ -145,43 +149,36 @@ export default function DashboardTopNav({
         <button
           className="icon-round-btn"
           title="Settings"
-          onClick={() => alert('Settings: Audio, Video & Gemini AI are configured and active.')}
+          onClick={() =>
+            alert(
+              "Settings: Audio, Video & Gemini AI are configured and active.",
+            )
+          }
         >
           <Settings size={18} />
         </button>
 
         <div
           className="upgrade-pill-tag"
-          onClick={() => alert('You are enjoying AURA Meet Pro with Real-time WebRTC Mesh & Gemini AI.')}
+          onClick={() =>
+            alert(
+              "You are enjoying AURA Meet Pro with Real-time WebRTC Mesh & Gemini AI.",
+            )
+          }
         >
           <Sparkles size={13} />
           <span>Pro</span>
         </div>
 
         <div
-          className="upgrade-pill-tag"
-          style={{
-            background: 'rgba(236, 72, 153, 0.15)',
-            border: '1px solid rgba(236, 72, 153, 0.4)',
-            color: '#f472b6',
-            cursor: 'pointer',
-          }}
-          onClick={() => navigate('/admin')}
-          title="Open Admin Analytics Dashboard"
-        >
-          <Shield size={13} />
-          <span>Admin</span>
-        </div>
-
-        <div
           className="nav-user-badge"
-          onClick={() => navigate('/profile')}
+          onClick={() => navigate("/profile")}
           title="View & Edit Profile"
         >
           <img
             src={
               user?.avatar ||
-              `https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || displayName || 'User'}`
+              `https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || displayName || "User"}`
             }
             alt="Avatar"
             className="user-nav-avatar"

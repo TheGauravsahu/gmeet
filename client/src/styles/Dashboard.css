@@ -705,6 +705,110 @@
   border-color: rgba(239, 68, 68, 0.4);
 }
 
+.delete-meeting-overlay {
+  padding: 20px;
+}
+
+.delete-meeting-dialog {
+  max-width: 420px;
+  text-align: center;
+}
+
+.delete-meeting-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.24);
+  border-radius: 16px;
+}
+
+.delete-meeting-dialog h2 {
+  margin: 0 0 10px;
+  color: #f8fafc;
+  font-size: 1.15rem;
+}
+
+.delete-meeting-dialog p {
+  margin: 0;
+  color: #a1a1aa;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.delete-meeting-dialog p strong {
+  color: #e2e8f0;
+}
+
+.delete-meeting-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.22);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: 10px;
+  text-align: left;
+  font-size: 0.82rem;
+}
+
+.delete-meeting-error svg {
+  flex: 0 0 auto;
+}
+
+.delete-meeting-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.delete-meeting-actions button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.delete-meeting-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.delete-meeting-cancel {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.delete-meeting-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.delete-meeting-confirm {
+  color: #fff;
+  background: #b91c1c;
+  border: 1px solid #dc2626;
+}
+
+.delete-meeting-confirm:hover:not(:disabled) {
+  background: #dc2626;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .dashboard-sidebar {
