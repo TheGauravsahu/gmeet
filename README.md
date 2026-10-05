@@ -98,6 +98,11 @@ JWT_EXPIRES_IN=7d
 CORS_ORIGIN=http://localhost:5173
 ```
 
+For a deployed frontend, set `VITE_API_URL` to the backend origin (for example,
+`https://api-aurameet.onrender.com`). The frontend adds the API prefix
+automatically, so do not include `/api` unless you prefer to specify the full
+base URL; both forms are supported.
+
 ### 5. Run the apps
 
 Start the backend:

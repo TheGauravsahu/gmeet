@@ -1,4 +1,9 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const configuredApiUrl = (
+  import.meta.env.VITE_API_URL || 'http://localhost:5000'
+).replace(/\/+$/, '');
+const API_BASE_URL = configuredApiUrl.endsWith('/api')
+  ? configuredApiUrl
+  : `${configuredApiUrl}/api`;
 
 /**
  * Universal API requester handling headers, JSON encoding, and errors
