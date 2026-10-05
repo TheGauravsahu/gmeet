@@ -806,7 +806,7 @@ export default function MeetingRoomPage() {
     });
 
     socket.on('aura-error', ({ message }) => {
-      setAuraError(message || 'Aura AI could not complete that request.');
+      setAuraError(message || 'Aura couldn’t respond. Try again in a moment.');
     });
 
     // 4l. User Left room
@@ -1586,7 +1586,7 @@ export default function MeetingRoomPage() {
         <aside className="meeting-side-drawer">
           <div className="drawer-header">
             <h3 className="drawer-title">
-              {activeDrawer === 'chat' && 'In-Call Messages & Aura AI'}
+              {activeDrawer === 'chat' && 'Messages'}
               {activeDrawer === 'participants' && `People (${totalParticipants})`}
             </h3>
             <button

@@ -102,8 +102,9 @@ CORS_ORIGIN=http://localhost:5173
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-Aura AI reads `GEMINI_API_KEY` only on the backend. Never add this secret to
-the frontend environment or send it from the browser. To start a camera-free
+Aura AI reads `GEMINI_API_KEY` only on the backend and uses Google's
+Interactions API with `gemini-3.5-flash-lite`. Never add this secret to the
+frontend environment or send it from the browser. To start a camera-free
 call, choose **New → Start a camera-free audio call** from the dashboard.
 Participants can also join a room through `/call/<room-code>`.
 

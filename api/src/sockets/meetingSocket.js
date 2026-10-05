@@ -642,7 +642,7 @@ export const setupMeetingSocket = (io) => {
         } catch (aiErr) {
           logger.error(`Aura AI Error: ${aiErr.message}`);
           io.to(reg.roomCode).emit('aura-error', {
-            message: aiErr.message || 'Aura AI could not complete that request.',
+            message: 'Aura couldn’t respond. Try again in a moment.',
           });
           io.to(reg.roomCode).emit('aura-status', { isThinking: false });
         }
@@ -701,7 +701,7 @@ export const setupMeetingSocket = (io) => {
       } catch (err) {
         logger.error(`Error in aura-ai-query: ${err.message}`);
         io.to(reg.roomCode).emit('aura-error', {
-          message: err.message || 'Aura AI could not complete that request.',
+          message: 'Aura couldn’t respond. Try again in a moment.',
         });
         io.to(reg.roomCode).emit('aura-status', { isThinking: false });
       }

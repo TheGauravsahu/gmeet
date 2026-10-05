@@ -1,6 +1,6 @@
 /**
  * Gemini AI Service for Aura Meeting Assistant
- * Handles queries to Google Gemini API with stable Flash model fallbacks.
+ * Handles Aura AI queries through Google's Interactions API.
  */
 
 const SYSTEM_INSTRUCTION = `You are Aura AI, an intelligent, concise, and helpful AI assistant inside an active Google Meet style video conference call.
@@ -40,51 +40,43 @@ export async function generateGeminiReply({
     ? `Recent in-meeting chat discussion:\n${contextMessages}\n\n${senderName} asks/says: ${prompt}`
     : `${senderName} asks/says: ${prompt}`;
 
-  const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': effectiveKey.trim(),
+    },
+    body: JSON.stringify({
+      model: 'gemini-3.5-flash-lite',
+      system_instruction: SYSTEM_INSTRUCTION,
+      input: fullPrompt,
+      store: false,
+    }),
+  });
 
-  for (let index = 0; index < models.length; index += 1) {
-    const model = models[index];
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': effectiveKey.trim(),
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: SYSTEM_INSTRUCTION }],
-        },
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: fullPrompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 600,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.warn(`[Gemini API] Model ${model} returned ${response.status}:`, errorData);
-      const errorMessage = errorData.error?.message || '';
-      const modelUnavailable =
-        response.status === 404 ||
-        /model .* (not found|not supported)|not supported for generatecontent/i.test(errorMessage);
-      if (modelUnavailable && index < models.length - 1) continue;
-      throw new Error(errorMessage || `Gemini API returned status ${response.status}`);
+  if (!response.ok) {
+    const responseBody = await response.text();
+    let errorData = {};
+    try {
+      errorData = JSON.parse(responseBody);
+    } catch {
+      errorData = { message: responseBody };
     }
-
-    const data = await response.json();
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!reply) throw new Error('Gemini returned an empty response.');
-    return reply.trim();
+    const errorMessage = errorData.error?.message || errorData.message || '';
+    console.error(`[Gemini API] Interactions request returned ${response.status}:`, errorData);
+    throw new Error(errorMessage || `Gemini API returned status ${response.status}`);
   }
 
-  throw new Error(`Gemini model ${models[0]} is unavailable.`);
+  const data = await response.json();
+  const outputText =
+    data.output_text ||
+    data.steps
+      ?.filter((step) => step.type === 'model_output')
+      .flatMap((step) => step.content || [])
+      .filter((part) => typeof part.text === 'string')
+      .map((part) => part.text)
+      .join('\n');
+
+  if (!outputText) throw new Error('Gemini returned an empty response.');
+  return outputText.trim();
 }

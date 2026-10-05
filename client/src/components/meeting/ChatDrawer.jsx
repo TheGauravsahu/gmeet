@@ -1,5 +1,14 @@
 import React from 'react';
-import { Sparkles, MessageSquare, Send, Users } from 'lucide-react';
+import {
+  Check,
+  Lightbulb,
+  ListChecks,
+  AlertCircle,
+  MessageSquare,
+  Send,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 
 export default function ChatDrawer({
   handleTriggerAuraPrompt,
@@ -30,49 +39,46 @@ export default function ChatDrawer({
             <div className="aura-sparkle-icon">
               <Sparkles size={14} />
             </div>
-            <div className="aura-title-copy">
-              <span>Aura AI</span>
-              <small>Gemini-powered meeting copilot</small>
-            </div>
+            <span>Aura AI</span>
+            <span className="aura-inline-hint">Ask anything with @aura</span>
           </div>
-
-          <span className="aura-private-note">No API key needed</span>
         </div>
 
-        <p className="aura-banner-copy">
-          Ask anything about the conversation or get help from Aura.
-        </p>
         <div className="aura-prompt-chips">
           <button
             className="aura-chip-btn"
             onClick={() => handleTriggerAuraPrompt('@aura Summarize the discussion so far')}
           >
-            ✨ Summary
+            <Sparkles size={12} />
+            <span>Summary</span>
           </button>
           <button
             className="aura-chip-btn"
             onClick={() => handleTriggerAuraPrompt('@aura Extract the action items and owners')}
           >
-            📋 Action items
+            <ListChecks size={12} />
+            <span>Actions</span>
           </button>
           <button
             className="aura-chip-btn"
             onClick={() => handleTriggerAuraPrompt('@aura List the decisions made so far')}
           >
-            ✓ Decisions
+            <Check size={12} />
+            <span>Decisions</span>
           </button>
           <button
             className="aura-chip-btn"
             onClick={() => handleTriggerAuraPrompt('@aura Brainstorm a few creative next steps')}
           >
-            💡 Brainstorm
+            <Lightbulb size={12} />
+            <span>Ideas</span>
           </button>
         </div>
       </div>
 
       {auraError && (
         <div className="aura-error-message" role="alert">
-          <Sparkles size={14} />
+          <AlertCircle size={14} />
           <span>{auraError}</span>
         </div>
       )}
@@ -82,9 +88,9 @@ export default function ChatDrawer({
         {messages.length === 0 ? (
           <div className="drawer-empty-state">
             <MessageSquare size={32} opacity={0.3} />
-            <p>No messages yet.</p>
+            <p>Start a conversation</p>
             <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-              Say hello or ask <strong>@aura</strong> anything!
+              Mention <strong>@aura</strong> for help
             </span>
           </div>
         ) : (
@@ -103,7 +109,7 @@ export default function ChatDrawer({
                   <span className="chat-sender-name">
                     {isAi ? (
                       <span className="ai-badge-tag">
-                        <Sparkles size={11} /> Aura AI (Gemini)
+                        <Sparkles size={11} /> Aura
                       </span>
                     ) : (
                       msg.senderName
@@ -183,7 +189,7 @@ export default function ChatDrawer({
             <input
               ref={chatInputRef}
               type="text"
-              placeholder="Message everyone or ask @aura anything..."
+              placeholder="Message or ask @aura…"
               className="chat-text-input"
               value={chatInput}
               onChange={handleChatInputChange}

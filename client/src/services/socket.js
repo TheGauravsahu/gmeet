@@ -14,7 +14,9 @@ export const getSocket = () => {
   if (!socket) {
     socket = io(SOCKET_SERVER_URL, {
       autoConnect: false,
-      transports: ['websocket', 'polling'],
+      // Start with polling and upgrade to WebSocket when available. This avoids
+      // noisy failed WebSocket attempts on local and restricted networks.
+      transports: ['polling', 'websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     });

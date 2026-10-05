@@ -32,7 +32,8 @@ GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 Aura AI uses this backend-only key for in-call `@aura` questions and meeting
-tools. Do not send the key from the browser or place it in a `VITE_` variable.
+tools through the Interactions API with `gemini-3.5-flash-lite`. Do not send the
+key from the browser or place it in a `VITE_` variable.
 
 ## Running the API
 
