@@ -29,6 +29,25 @@ const ICE_SERVERS = {
   iceCandidatePoolSize: 10,
 };
 
+const getAnswerDirection = (offerSdp, mid) => {
+  const sections = offerSdp.split(/(?=^m=)/m);
+  const mediaSection = sections.find((section) =>
+    section.split(/\r?\n/).includes(`a=mid:${mid}`)
+  );
+  const directionPattern = /^a=(sendrecv|sendonly|recvonly|inactive)$/m;
+  const offeredDirection =
+    mediaSection?.match(directionPattern)?.[1] ||
+    sections[0]?.match(directionPattern)?.[1] ||
+    'sendrecv';
+
+  return {
+    sendrecv: 'sendrecv',
+    sendonly: 'recvonly',
+    recvonly: 'sendonly',
+    inactive: 'inactive',
+  }[offeredDirection];
+};
+
 export default function MeetingRoomPage() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
@@ -593,6 +612,10 @@ export default function MeetingRoomPage() {
                 t.receiver.track?.kind === track.kind
             );
             if (target) {
+              target.direction = getAnswerDirection(
+                pc.remoteDescription.sdp,
+                target.mid
+              );
               await target.sender.replaceTrack(track);
             }
           }
@@ -606,7 +629,10 @@ export default function MeetingRoomPage() {
             : transceivers.filter((t) => t.receiver.track?.kind === 'video')[1];
 
         if (screenTransceiver) {
-          screenTransceiver.direction = 'sendrecv';
+          screenTransceiver.direction = getAnswerDirection(
+            pc.remoteDescription.sdp,
+            screenTransceiver.mid
+          );
           screenTransceiversRef.current.set(callerSocketId, screenTransceiver);
           screenSendersRef.current.set(callerSocketId, screenTransceiver.sender);
 

@@ -55,11 +55,20 @@ function PeerVideoTileComponent({
       tryPlayMedia();
       setTrackVersion((v) => v + 1);
     };
+    const tracks = stream.getTracks();
+    tracks.forEach((track) => {
+      track.addEventListener('mute', handleTrackChange);
+      track.addEventListener('unmute', handleTrackChange);
+    });
 
     stream.addEventListener('addtrack', handleTrackChange);
     stream.addEventListener('removetrack', handleTrackChange);
 
     return () => {
+      tracks.forEach((track) => {
+        track.removeEventListener('mute', handleTrackChange);
+        track.removeEventListener('unmute', handleTrackChange);
+      });
       stream.removeEventListener('addtrack', handleTrackChange);
       stream.removeEventListener('removetrack', handleTrackChange);
     };

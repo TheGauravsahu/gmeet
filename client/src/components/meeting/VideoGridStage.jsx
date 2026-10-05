@@ -60,7 +60,9 @@ function VideoGridStageComponent({
         el.srcObject = stream;
       }
       el.play().catch((err) => {
-        console.warn('[ScreenShare] play failed on ref attach:', err);
+        if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+          console.warn('[ScreenShare] play failed on ref attach:', err);
+        }
       });
     } else {
       el.srcObject = null;
@@ -79,11 +81,12 @@ function VideoGridStageComponent({
 
       if (video.srcObject !== activeScreenShareStream) {
         video.srcObject = activeScreenShareStream;
+        video.play().catch((err) => {
+          if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+            console.warn('[ScreenShare] play failed on effect:', err);
+          }
+        });
       }
-
-      video.play().catch((err) => {
-        console.warn('[ScreenShare] play failed on effect:', err);
-      });
 
       const videoTrack = activeScreenShareStream.getVideoTracks()[0];
       if (videoTrack) {
@@ -300,4 +303,3 @@ function VideoGridStageComponent({
 }
 
 export default memo(VideoGridStageComponent);
-
