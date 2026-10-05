@@ -101,7 +101,9 @@ CORS_ORIGIN=http://localhost:5173
 For a deployed frontend, set `VITE_API_URL` to the backend origin (for example,
 `https://api-aurameet.onrender.com`). The frontend adds the API prefix
 automatically, so do not include `/api` unless you prefer to specify the full
-base URL; both forms are supported.
+base URL; both forms are supported. Socket.IO uses this same backend URL by
+default. Set `VITE_SOCKET_URL` only if your signaling server uses a different
+origin.
 
 ### 5. Run the apps
 
