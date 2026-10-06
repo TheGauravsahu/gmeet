@@ -42,7 +42,7 @@ const roomSchema = new mongoose.Schema(
       muteOnEntry: { type: Boolean, default: false },
       allowScreenShare: { type: Boolean, default: true },
       allowChat: { type: Boolean, default: true },
-      requireHostApproval: { type: Boolean, default: false },
+      requireHostApproval: { type: Boolean, default: true },
       aiTranscriptionEnabled: { type: Boolean, default: true },
     },
     scheduledFor: {
@@ -60,6 +60,8 @@ const roomSchema = new mongoose.Schema(
     maxParticipants: {
       type: Number,
       default: 50,
+      min: 2,
+      max: 500,
     },
   },
   {

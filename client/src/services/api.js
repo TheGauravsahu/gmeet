@@ -133,4 +133,28 @@ export const api = {
         body: JSON.stringify(transcriptData),
       }),
   },
+
+  // Admin-only management
+  admin: {
+    getOverview: () => request('/admin/overview'),
+    getUsers: (params = '') => request(`/admin/users${params ? `?${params}` : ''}`),
+    getUser: (userId) => request(`/admin/users/${userId}`),
+    createUser: (data) =>
+      request('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
+    updateUser: (userId, data) =>
+      request(`/admin/users/${userId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteUser: (userId) =>
+      request(`/admin/users/${userId}`, { method: 'DELETE' }),
+    getMeetings: (params = '') => request(`/admin/meetings${params ? `?${params}` : ''}`),
+    getMeeting: (roomCode) => request(`/admin/meetings/${roomCode}`),
+    createMeeting: (data) =>
+      request('/admin/meetings', { method: 'POST', body: JSON.stringify(data) }),
+    updateMeeting: (roomCode, data) =>
+      request(`/admin/meetings/${roomCode}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteMeeting: (roomCode) =>
+      request(`/admin/meetings/${roomCode}`, { method: 'DELETE' }),
+    getSettings: () => request('/admin/settings'),
+    updateSettings: (data) =>
+      request('/admin/settings', { method: 'PUT', body: JSON.stringify(data) }),
+  },
 };

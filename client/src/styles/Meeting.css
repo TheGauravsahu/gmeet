@@ -859,6 +859,16 @@
 .dock-circle-btn:hover {
   background: rgba(255, 255, 255, 0.18);
   color: #ffffff;
+}
+
+.dock-circle-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.dock-circle-btn:disabled:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
   transform: translateY(-2px);
 }
 
@@ -2189,6 +2199,33 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.participants-host-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-room-lock-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid rgba(124, 138, 255, 0.28);
+  border-radius: 6px;
+  color: #b5bdff;
+  background: rgba(92, 108, 255, 0.12);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-room-lock-toolbar:hover {
+  border-color: rgba(145, 157, 255, 0.55);
+  color: #fff;
+  background: rgba(92, 108, 255, 0.25);
+}
+
 .roster-count-text {
   font-size: 0.78rem;
   font-weight: 600;
@@ -2253,6 +2290,18 @@
   background: rgba(16, 185, 129, 0.2);
   color: #10b981;
   border-color: rgba(16, 185, 129, 0.3);
+}
+
+.roster-action-btn.roster-remove-btn {
+  color: #fb7185;
+  background: rgba(239, 68, 68, 0.11);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.roster-action-btn.roster-remove-btn:hover {
+  color: #fff;
+  background: rgba(220, 38, 38, 0.75);
+  border-color: rgba(248, 113, 113, 0.6);
 }
 
 /* ==========================================================================

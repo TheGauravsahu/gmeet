@@ -17,7 +17,6 @@ export const getTranscripts = async (req, res, next) => {
     if (!room) {
       return sendError(res, `Room '${roomCode}' not found`, 404);
     }
-
     const transcripts = await Transcript.find({ room: room._id })
       .sort({ timestamp: 1 })
       .limit(limit);
@@ -48,6 +47,9 @@ export const addTranscript = async (req, res, next) => {
     const room = await Room.findOne({ roomCode });
     if (!room) {
       return sendError(res, `Room '${roomCode}' not found`, 404);
+    }
+    if (room.settings?.aiTranscriptionEnabled === false) {
+      return sendError(res, 'AI transcription is disabled in this meeting', 403);
     }
 
     const transcript = await Transcript.create({

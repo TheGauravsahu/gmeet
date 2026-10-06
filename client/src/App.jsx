@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './AuthPage';
 import LobbyPage from './pages/LobbyPage';
@@ -8,6 +8,7 @@ import MeetingRoomPage from './pages/MeetingRoomPage';
 import MeetingsDashboardPage from './pages/MeetingsDashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import MeetingEndedPage from './pages/MeetingEndedPage';
+import AdminPage from './pages/AdminPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import './styles/App.css';
@@ -17,6 +18,7 @@ import './styles/Dashboard.css';
 import './styles/Profile.css';
 import './styles/MeetingEnded.css';
 import './styles/MobileResponsive.css';
+import './styles/Admin.css';
 
 // Wrapper for LandingPage so onNavigate works with React Router
 function LandingWrapper() {
@@ -28,6 +30,21 @@ function LandingWrapper() {
 function AuthWrapper({ mode }) {
   const navigate = useNavigate();
   return <AuthPage initialMode={mode} onNavigate={(path) => navigate(path)} />;
+}
+
+function DashboardEntry() {
+  const { user } = useAuth();
+  return user?.role === 'admin' ? <AdminPage /> : <MeetingsDashboardPage />;
+}
+
+function MeetingsEntry() {
+  const { user } = useAuth();
+  return user?.role === 'admin' ? <AdminPage /> : <MeetingsDashboardPage />;
+}
+
+function AdminRoute() {
+  const { user } = useAuth();
+  return user?.role === 'admin' ? <AdminPage /> : <Navigate to="/dashboard" replace />;
 }
 
 export default function App() {
@@ -48,7 +65,7 @@ export default function App() {
             path="/home"
             element={
               <ProtectedRoute>
-                <MeetingsDashboardPage />
+                <DashboardEntry />
               </ProtectedRoute>
             }
           />
@@ -56,7 +73,7 @@ export default function App() {
             path="/meetings"
             element={
               <ProtectedRoute>
-                <MeetingsDashboardPage />
+                <MeetingsEntry />
               </ProtectedRoute>
             }
           />
@@ -64,10 +81,17 @@ export default function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <MeetingsDashboardPage />
+                <DashboardEntry />
               </ProtectedRoute>
             }
           />
+          <Route path="/admin" element={<ProtectedRoute><AdminRoute /></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute><AdminRoute /></ProtectedRoute>} />
+          <Route path="/users/create" element={<ProtectedRoute><AdminRoute /></ProtectedRoute>} />
+          <Route path="/users/:userId/edit" element={<ProtectedRoute><AdminRoute /></ProtectedRoute>} />
+          <Route path="/meetings/create" element={<ProtectedRoute><AdminRoute /></ProtectedRoute>} />
+          <Route path="/meetings/:roomCode/edit" element={<ProtectedRoute><AdminRoute /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><AdminRoute /></ProtectedRoute>} />
 
           {/* User Profile Page (Protected) */}
           <Route

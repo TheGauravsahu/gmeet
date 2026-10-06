@@ -1,4 +1,5 @@
 import { Room } from '../models/Room.js';
+import { PlatformSettings } from '../models/PlatformSettings.js';
 import { generateRoomCode, normalizeRoomCode, isValidRoomCode } from '../utils/codeGenerator.js';
 import { sendSuccess, sendError } from '../utils/apiResponse.js';
 
@@ -10,6 +11,7 @@ import { sendSuccess, sendError } from '../utils/apiResponse.js';
 export const createRoom = async (req, res, next) => {
   try {
     const { title, description, customCode, settings, scheduledFor, hostName } = req.body;
+    const platformSettings = await PlatformSettings.findById('platform');
 
     let roomCode = customCode ? normalizeRoomCode(customCode) : generateRoomCode();
 
@@ -42,7 +44,11 @@ export const createRoom = async (req, res, next) => {
       host: hostUser,
       hostName: finalHostName,
       status: scheduledFor ? 'scheduled' : 'active',
-      settings: settings || {},
+      settings: {
+        ...(platformSettings?.defaultMeetingSettings || {}),
+        ...(settings || {}),
+      },
+      maxParticipants: platformSettings?.defaultMaxParticipants || 50,
       scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
       startedAt: scheduledFor ? null : new Date(),
     });

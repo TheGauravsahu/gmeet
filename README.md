@@ -19,6 +19,7 @@ This project is structured as a full-stack application with:
 - Modern landing page with a cosmic purple UI and product showcase
 - Instant meeting creation and lobby flow
 - Protected dashboard for meeting management
+- Role-protected admin console for workspace users, meetings, and defaults
 - User sign in / sign up flows with session-aware auth
 - Meeting room lifecycle with join, leave, and end states
 - Real-time participant status and room updates
@@ -143,6 +144,27 @@ http://localhost:5173
 - Use the dashboard or instant meeting flow to create a room.
 - Join or host a meeting from the lobby.
 - Manage meeting state, chat, and participant flows from the meeting UI.
+
+## Admin Console
+
+Administrators can use `/dashboard` for workspace analytics, `/users` for user
+management, `/meetings` for workspace-wide meeting management, and `/settings`
+to configure defaults used by newly created meetings. Admin API routes require
+an authenticated account with the `admin` role; public registration always
+creates a regular user.
+
+To bootstrap the first administrator, promote a trusted account directly in
+MongoDB after registering it:
+
+```javascript
+db.users.updateOne(
+  { email: "admin@example.com" },
+  { $set: { role: "admin" } }
+);
+```
+
+Hosts can remove participants from the in-meeting People panel and share an
+invite using the browser's native share sheet or the copy-link fallback.
 
 ## Development Notes
 

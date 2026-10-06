@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Mic, MicOff, Video, VideoOff } from 'lucide-react';
+import { Users, Mic, MicOff, Video, VideoOff, UserX, Lock, Unlock } from 'lucide-react';
 
 export default function ParticipantsDrawer({
   isHost,
@@ -11,6 +11,9 @@ export default function ParticipantsDrawer({
   participants,
   handleMuteAll,
   handleHostControlMedia,
+  handleRemoveParticipant,
+  roomLocked,
+  handleToggleRoomLock,
   myName,
   isMicOn,
   isVideoOn,
@@ -54,16 +57,22 @@ export default function ParticipantsDrawer({
 
       <div className="participants-drawer-toolbar">
         <span className="roster-count-text">In Meeting ({totalParticipants})</span>
-        {isHost && participants.length > 0 && (
-          <button
-            className="btn-mute-all-toolbar"
-            onClick={handleMuteAll}
-            title="Mute all remote participants"
-          >
-            <MicOff size={13} />
-            <span>Mute All</span>
+        {isHost && <div className="participants-host-actions">
+          <button className="btn-room-lock-toolbar" onClick={handleToggleRoomLock} title={roomLocked ? 'Unlock this meeting' : 'Lock this meeting'}>
+            {roomLocked ? <Unlock size={13} /> : <Lock size={13} />}
+            <span>{roomLocked ? 'Unlock' : 'Lock'}</span>
           </button>
-        )}
+          {participants.length > 0 && (
+            <button
+              className="btn-mute-all-toolbar"
+              onClick={handleMuteAll}
+              title="Mute all remote participants"
+            >
+              <MicOff size={13} />
+              <span>Mute All</span>
+            </button>
+          )}
+        </div>}
       </div>
 
       <div className="participants-list-view">
@@ -149,6 +158,15 @@ export default function ParticipantsDrawer({
                   >
                     {peer.isVideoMuted ? <VideoOff size={14} /> : <Video size={14} />}
                   </button>
+                  {!peer.isHost && (
+                    <button
+                      className="roster-action-btn roster-remove-btn"
+                      onClick={() => handleRemoveParticipant(peer.socketId, peer.displayName)}
+                      title={`Remove ${peer.displayName} from the meeting`}
+                    >
+                      <UserX size={14} />
+                    </button>
+                  )}
                 </>
               ) : (
                 <>

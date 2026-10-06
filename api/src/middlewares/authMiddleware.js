@@ -64,6 +64,13 @@ export const optionalAuth = async (req, res, next) => {
   next();
 };
 
+export const requireAdmin = (req, res, next) => {
+  if (req.user?.role !== 'admin') {
+    return sendError(res, 'Administrator access is required.', 403);
+  }
+  next();
+};
+
 /**
  * Generates JWT token helper
  */

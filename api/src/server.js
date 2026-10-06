@@ -20,6 +20,7 @@ const io = new SocketIOServer(server, {
   },
   pingTimeout: 60000,
 });
+app.set('io', io);
 
 // Attach WebRTC and meeting signaling handlers
 setupMeetingSocket(io);

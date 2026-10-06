@@ -14,6 +14,9 @@ export const getSocket = () => {
   if (!socket) {
     socket = io(SOCKET_SERVER_URL, {
       autoConnect: false,
+      auth: {
+        token: localStorage.getItem('aura_meet_token') || '',
+      },
       // Start with polling and upgrade to WebSocket when available. This avoids
       // noisy failed WebSocket attempts on local and restricted networks.
       transports: ['polling', 'websocket'],
@@ -39,6 +42,12 @@ export const getSocket = () => {
 
 export const connectSocket = () => {
   const s = getSocket();
+  const token = localStorage.getItem('aura_meet_token') || '';
+  const tokenChanged = s.auth?.token !== token;
+  s.auth = {
+    token,
+  };
+  if (s.connected && tokenChanged) s.disconnect();
   if (!s.connected) {
     s.connect();
   }

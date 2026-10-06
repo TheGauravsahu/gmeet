@@ -4,8 +4,35 @@ import { Room } from '../models/Room.js';
 import { normalizeRoomCode } from '../utils/codeGenerator.js';
 import { logger } from '../utils/logger.js';
 import { generateGeminiReply } from '../services/geminiService.js';
+import jwt from 'jsonwebtoken';
+import { User } from '../models/User.js';
+import { config } from '../config/index.js';
 
 export const setupMeetingSocket = (io) => {
+  io.use(async (socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) {
+      socket.data.user = null;
+      return next();
+    }
+
+    try {
+      const decoded = jwt.verify(token, config.jwtSecret);
+      const user = await User.findById(decoded.id).select('name email avatar');
+      if (!user) return next(new Error('Authentication failed.'));
+      socket.data.user = {
+        userId: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+      };
+      return next();
+    } catch (error) {
+      logger.warn(`Rejected socket authentication: ${error.message}`);
+      return next(new Error('Authentication failed.'));
+    }
+  });
+
   // Store socket mapping: socketId -> { roomCode, participantId, displayName, isHost }
   const socketRegistry = new Map();
 
@@ -23,6 +50,15 @@ export const setupMeetingSocket = (io) => {
 
   io.on('connection', (socket) => {
     logger.info(`Socket connected: ${socket.id}`);
+
+    const resolveSocketUser = (user = {}) =>
+      socket.data.user
+        ? {
+            ...user,
+            ...socket.data.user,
+            displayName: socket.data.user.name,
+          }
+        : { ...user, userId: '' };
 
     /**
      * Helper to get active host socket for a room
@@ -73,6 +109,7 @@ export const setupMeetingSocket = (io) => {
      * 1. Request to Join / Knocking Event (from Lobby or pre-meeting)
      */
     socket.on('request-to-join', async ({ roomCode: rawCode, user = {} }) => {
+      user = resolveSocketUser(user);
       const roomCode = normalizeRoomCode(rawCode);
       if (!roomCode) {
         socket.emit('error-message', { message: 'Invalid room code' });
@@ -80,6 +117,22 @@ export const setupMeetingSocket = (io) => {
       }
 
       const isHost = await checkIsHost(roomCode, user);
+      let room;
+      try {
+        room = await Room.findOne({ roomCode });
+      } catch (error) {
+        logger.error(`Could not verify join request for room ${roomCode}: ${error.message}`);
+        socket.emit('error-message', { message: 'Could not verify meeting access.' });
+        return;
+      }
+      if (room?.status === 'ended') {
+        socket.emit('join-denied', { message: 'This meeting has already ended.' });
+        return;
+      }
+      if (room?.settings?.isLocked && !isHost) {
+        socket.emit('join-denied', { message: 'This meeting is locked by the host.' });
+        return;
+      }
       if (isHost) {
         roomHosts.set(roomCode, socket.id);
         if (!roomAdmittedSockets.has(roomCode)) {
@@ -100,6 +153,23 @@ export const setupMeetingSocket = (io) => {
       }
 
       const currentUserId = user.userId ? user.userId.toString() : '';
+      if (room && room.settings?.requireHostApproval === false) {
+        if (!roomAdmittedSockets.has(roomCode)) {
+          roomAdmittedSockets.set(roomCode, new Set());
+        }
+        roomAdmittedSockets.get(roomCode).add(socket.id);
+        if (currentUserId) {
+          if (!roomAdmittedUserIds.has(roomCode)) {
+            roomAdmittedUserIds.set(roomCode, new Set());
+          }
+          roomAdmittedUserIds.get(roomCode).add(currentUserId);
+        }
+        socket.emit('join-approved', {
+          isHost: false,
+          assignedName: user.displayName || 'Participant',
+        });
+        return;
+      }
       const admittedUserSet = roomAdmittedUserIds.get(roomCode);
       const admittedSocketSet = roomAdmittedSockets.get(roomCode);
       const isApproved =
@@ -185,17 +255,20 @@ export const setupMeetingSocket = (io) => {
       // Try to find the room in DB & save participant
       let room = await Room.findOne({ roomCode });
       let participantId = null;
+      const muteOnEntry = !isHost && Boolean(room?.settings?.muteOnEntry);
+      const isAudioMuted = muteOnEntry || Boolean(user.isAudioMuted);
 
       if (room) {
         try {
           const participant = await Participant.create({
             room: room._id,
             roomCode,
+            user: user.userId || null,
             displayName: effectiveName,
             avatar: user.avatar || '',
             socketId: targetSocket.id,
             peerId: user.peerId || '',
-            isAudioMuted: !!user.isAudioMuted,
+            isAudioMuted,
             isVideoMuted: !!user.isVideoMuted,
             isActive: true,
           });
@@ -210,13 +283,22 @@ export const setupMeetingSocket = (io) => {
         roomCode,
         participantId,
         displayName: effectiveName,
+        userId: user.userId ? user.userId.toString() : '',
         avatar: user.avatar || '',
         peerId: user.peerId || '',
-        isAudioMuted: !!user.isAudioMuted,
+        isAudioMuted,
         isVideoMuted: !!user.isVideoMuted,
         isScreenSharing: !!user.isScreenSharing,
         isHost,
       });
+
+      if (muteOnEntry) {
+        targetSocket.emit('host-media-action', {
+          mediaType: 'audio',
+          action: 'mute',
+          hostName: room?.hostName || 'Host',
+        });
+      }
 
       // Get list of existing peers in the room (excluding this targetSocket)
       const clientsInRoom = Array.from(io.sockets.adapter.rooms.get(roomCode) || [])
@@ -248,7 +330,7 @@ export const setupMeetingSocket = (io) => {
         peerId: user.peerId || '',
         displayName: effectiveName,
         avatar: user.avatar || '',
-        isAudioMuted: !!user.isAudioMuted,
+        isAudioMuted,
         isVideoMuted: !!user.isVideoMuted,
         isScreenSharing: !!user.isScreenSharing,
         isHost,
@@ -359,6 +441,7 @@ export const setupMeetingSocket = (io) => {
      * 5. Join Room Event (Enforces host approval)
      */
     socket.on('join-room', async ({ roomCode: rawCode, user = {} }) => {
+      user = resolveSocketUser(user);
       const roomCode = normalizeRoomCode(rawCode);
       if (!roomCode) {
         socket.emit('error-message', { message: 'Invalid room code' });
@@ -366,6 +449,22 @@ export const setupMeetingSocket = (io) => {
       }
 
       const isHost = await checkIsHost(roomCode, user);
+      let room;
+      try {
+        room = await Room.findOne({ roomCode });
+      } catch (error) {
+        logger.error(`Could not verify room access for ${roomCode}: ${error.message}`);
+        socket.emit('error-message', { message: 'Could not verify meeting access.' });
+        return;
+      }
+      if (room?.status === 'ended') {
+        socket.emit('join-denied', { message: 'This meeting has already ended.' });
+        return;
+      }
+      if (room?.settings?.isLocked && !isHost) {
+        socket.emit('join-denied', { message: 'This meeting is locked by the host.' });
+        return;
+      }
       if (isHost) {
         roomHosts.set(roomCode, socket.id);
         if (!roomAdmittedSockets.has(roomCode)) {
@@ -390,7 +489,8 @@ export const setupMeetingSocket = (io) => {
       const admittedSocketSet = roomAdmittedSockets.get(roomCode);
       const isApproved =
         (admittedSocketSet && admittedSocketSet.has(socket.id)) ||
-        (currentUserId && admittedUserSet && admittedUserSet.has(currentUserId));
+        (currentUserId && admittedUserSet && admittedUserSet.has(currentUserId)) ||
+        Boolean(room && room.settings?.requireHostApproval === false);
 
       if (!isApproved) {
         const participantInfo = {
@@ -560,6 +660,50 @@ export const setupMeetingSocket = (io) => {
       logger.info(`Host ${socket.id} muted all participants in room ${roomCode}`);
     });
 
+    socket.on('remove-participant', async ({ roomCode: rawCode, targetSocketId } = {}) => {
+      const roomCode = normalizeRoomCode(rawCode);
+      const activeHostId = roomHosts.get(roomCode);
+      const targetMeta = socketRegistry.get(targetSocketId);
+      if (
+        !roomCode ||
+        activeHostId !== socket.id ||
+        !targetMeta ||
+        targetMeta.roomCode !== roomCode ||
+        targetMeta.isHost
+      ) {
+        logger.warn(`Rejected participant removal request from ${socket.id} in room ${roomCode}`);
+        return;
+      }
+
+      const targetSocket = io.sockets.sockets.get(targetSocketId);
+      if (!targetSocket) return;
+
+      targetSocket.emit('participant-removed', {
+        message: 'The host removed you from this meeting.',
+      });
+      targetSocket.leave(roomCode);
+      socketRegistry.delete(targetSocketId);
+      roomAdmittedSockets.get(roomCode)?.delete(targetSocketId);
+      if (targetMeta.userId) {
+        roomAdmittedUserIds.get(roomCode)?.delete(targetMeta.userId);
+      }
+      targetSocket.to(roomCode).emit('user-left', {
+        socketId: targetSocketId,
+        displayName: targetMeta.displayName,
+      });
+      if (targetMeta.participantId) {
+        try {
+          await Participant.findByIdAndUpdate(targetMeta.participantId, {
+            isActive: false,
+            leftAt: new Date(),
+          });
+        } catch (error) {
+          logger.error(`Error removing participant from room: ${error.message}`);
+        }
+      }
+      logger.info(`Host ${socket.id} removed ${targetMeta.displayName} from room ${roomCode}`);
+    });
+
     /**
      * In-Call Chat Message + Aura AI (Gemini)
      */
@@ -568,6 +712,18 @@ export const setupMeetingSocket = (io) => {
       if (!reg || !content || !content.trim()) return;
 
       const trimmedContent = content.trim();
+      let room = null;
+      try {
+        room = await Room.findOne({ roomCode: reg.roomCode });
+        if (room?.settings?.allowChat === false) {
+          socket.emit('chat-disabled', { message: 'Chat is disabled in this meeting.' });
+          return;
+        }
+      } catch (error) {
+        logger.error(`Error checking meeting chat settings: ${error.message}`);
+        socket.emit('chat-disabled', { message: 'Could not verify meeting chat settings.' });
+        return;
+      }
       const messagePayload = {
         socketId: socket.id,
         senderName: reg.displayName,
@@ -580,9 +736,7 @@ export const setupMeetingSocket = (io) => {
       io.to(reg.roomCode).emit('new-message', messagePayload);
 
       // Persist to MongoDB
-      let room = null;
       try {
-        room = await Room.findOne({ roomCode: reg.roomCode });
         if (room) {
           await Message.create({
             room: room._id,

@@ -17,6 +17,8 @@ export default function MeetingDock({
   isVideoOn,
   toggleCamera,
   isScreenSharing,
+  allowScreenShare = true,
+  allowChat = true,
   isAudioOnly = false,
   toggleScreenShare,
   isHandRaised,
@@ -54,7 +56,8 @@ export default function MeetingDock({
         <button
           className={`dock-circle-btn ${isScreenSharing ? 'btn-highlight' : ''}`}
           onClick={toggleScreenShare}
-          title={isScreenSharing ? 'Stop Screen Share' : 'Share Screen'}
+          disabled={!allowScreenShare && !isScreenSharing}
+          title={allowScreenShare ? (isScreenSharing ? 'Stop Screen Share' : 'Share Screen') : 'Screen sharing is disabled'}
         >
           <Monitor size={20} />
         </button>
@@ -93,7 +96,8 @@ export default function MeetingDock({
             setActiveDrawer(activeDrawer === 'chat' ? null : 'chat');
             setUnreadChatCount(0);
           }}
-          title="In-Call Chat & Aura AI"
+          disabled={!allowChat}
+          title={allowChat ? 'In-Call Chat & Aura AI' : 'Chat is disabled'}
         >
           <MessageSquare size={20} />
           {unreadChatCount > 0 && (

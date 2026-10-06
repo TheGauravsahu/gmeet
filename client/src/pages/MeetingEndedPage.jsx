@@ -29,6 +29,8 @@ export default function MeetingEndedPage() {
   const roomTitle = state.roomTitle || `Meeting #${roomCode}`;
   const callDuration = state.callDuration || 0;
   const participantName = state.participantName || user?.name || 'Participant';
+  const wasRemoved = Boolean(state.wasRemoved);
+  const endedByAdmin = Boolean(state.endedByAdmin);
 
   // Feedback rating state
   const [rating, setRating] = useState(0);
@@ -135,8 +137,10 @@ export default function MeetingEndedPage() {
           </div>
 
           {/* Headline */}
-          <h1 className="ended-headline">You left the meeting</h1>
+          <h1 className="ended-headline">{wasRemoved ? 'You were removed from the meeting' : endedByAdmin ? 'This meeting was ended by an administrator' : 'You left the meeting'}</h1>
           <p className="ended-room-sub">
+            {wasRemoved && <span>The host removed you from this meeting. &bull; </span>}
+            {endedByAdmin && <span>The meeting has been closed by your workspace administrator. &bull; </span>}
             {roomTitle !== `Meeting #${roomCode}` && <span>{roomTitle} &bull; </span>}
             Room Code: <span className="ended-code-pill">{roomCode}</span>
           </p>
@@ -195,14 +199,14 @@ export default function MeetingEndedPage() {
 
           {/* Action CTAs */}
           <div className="ended-actions-group">
-            <button
+            {!endedByAdmin && <button
               onClick={handleRejoin}
               className="ended-btn ended-btn-primary"
               title="Rejoin this room"
             >
               <RotateCcw size={16} />
               <span>Rejoin</span>
-            </button>
+            </button>}
 
             <button
               onClick={handleReturnHome}

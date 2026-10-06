@@ -119,6 +119,7 @@ export default function MeetingRoomPage() {
   const chatBottomRef = useRef(null);
   const chatInputRef = useRef(null);
   const socketRef = useRef(null);
+  const handleLeaveCallRef = useRef(null);
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
   const screenAudioContextRef = useRef(null);
@@ -809,6 +810,10 @@ export default function MeetingRoomPage() {
       setAuraError(message || 'Aura couldn’t respond. Try again in a moment.');
     });
 
+    socket.on('chat-disabled', ({ message }) => {
+      setAuraError(message || 'Chat is disabled in this meeting.');
+    });
+
     // 4l. User Left room
     socket.on('user-left', ({ socketId, displayName }) => {
       console.log('[WebRTC] User left:', socketId, displayName);
@@ -843,6 +848,14 @@ export default function MeetingRoomPage() {
         delete updated[socketId];
         return updated;
       });
+    });
+
+    socket.on('participant-removed', () => {
+      handleLeaveCallRef.current?.({ wasRemoved: true });
+    });
+
+    socket.on('meeting-ended-by-admin', () => {
+      handleLeaveCallRef.current?.({ endedByAdmin: true });
     });
 
     // 4m. Host Remote Media Action (Mute/Unmute & Turn On/Off Camera)
@@ -1025,10 +1038,28 @@ export default function MeetingRoomPage() {
     });
   };
 
+  const handleRemoveParticipant = (targetSocketId, displayName) => {
+    if (!isHost || !socketRef.current?.connected) return;
+    if (!window.confirm(`Remove ${displayName} from this meeting?`)) return;
+    socketRef.current.emit('remove-participant', { roomCode, targetSocketId });
+  };
+
   const handleMuteAll = () => {
     if (!isHost || !socketRef.current?.connected) return;
     socketRef.current.emit('host-mute-all', { roomCode });
     setToastMessage('Muted all participants in the meeting');
+  };
+
+  const handleToggleRoomLock = async () => {
+    if (!isHost || !roomInfo) return;
+    try {
+      const isLocked = !roomInfo.settings?.isLocked;
+      const result = await api.rooms.updateRoom(roomCode, { settings: { isLocked } });
+      setRoomInfo(result.data.room);
+      setToastMessage(isLocked ? 'Meeting locked' : 'Meeting unlocked');
+    } catch (error) {
+      setToastMessage(`Could not update meeting lock: ${error.message}`);
+    }
   };
 
   // --------------------------------------------------------------------------
@@ -1178,6 +1209,10 @@ export default function MeetingRoomPage() {
   const toggleScreenShare = async () => {
     if (isScreenSharingRef.current) {
       stopScreenShare();
+      return;
+    }
+    if (roomInfo?.settings?.allowScreenShare === false) {
+      setToastMessage('Screen sharing is disabled in this meeting.');
       return;
     }
     if (screenShareStartingRef.current) return;
@@ -1458,6 +1493,10 @@ export default function MeetingRoomPage() {
   const handleSendMessage = async (e) => {
     e?.preventDefault();
     if (!chatInput.trim()) return;
+    if (roomInfo?.settings?.allowChat === false) {
+      setAuraError('Chat is disabled in this meeting.');
+      return;
+    }
 
     const content = chatInput.trim();
     setChatInput('');
@@ -1473,6 +1512,10 @@ export default function MeetingRoomPage() {
   };
 
   const handleTriggerAuraPrompt = (promptText) => {
+    if (roomInfo?.settings?.allowChat === false) {
+      setAuraError('Chat is disabled in this meeting.');
+      return;
+    }
     if (socketRef.current?.connected) {
       setAuraError('');
       socketRef.current.emit('send-message', { content: promptText });
@@ -1481,23 +1524,43 @@ export default function MeetingRoomPage() {
     }
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     const url = `${window.location.origin}/${isAudioOnly ? 'call' : 'lobby'}/${roomCode}`;
-    navigator.clipboard.writeText(url);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
+    const inviteTitle = roomInfo?.title || `AURA.MEET meeting ${roomCode}`;
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({
+          title: inviteTitle,
+          text: `Join my AURA.MEET meeting. Meeting code: ${roomCode}`,
+          url,
+        });
+        setToastMessage('Meeting invite shared');
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setToastMessage('Meeting link copied to clipboard');
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        setToastMessage(`Could not share the meeting invite: ${error.message}`);
+      }
+    }
   };
 
-  const handleLeaveCall = () => {
+  const handleLeaveCall = useCallback((reason = {}) => {
+    const wasRemoved = reason === true || Boolean(reason?.wasRemoved);
+    const endedByAdmin = Boolean(reason?.endedByAdmin);
     if (socketRef.current?.connected) {
       socketRef.current.emit('leave-room');
     }
-    if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
     }
-    if (screenStream) {
-      screenStream.getTracks().forEach((track) => track.stop());
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
     }
+    stopScreenAudioMixer();
     peerConnectionsRef.current.forEach((pc) => {
       try {
         pc.close();
@@ -1514,9 +1577,14 @@ export default function MeetingRoomPage() {
         roomTitle: roomInfo?.title || `Meeting #${roomCode}`,
         participantName: myName,
         isHost,
+        wasRemoved,
+        endedByAdmin,
       },
     });
-  };
+  }, [isHost, myName, navigate, roomCode, roomInfo?.title, stopScreenAudioMixer]);
+  useEffect(() => {
+    handleLeaveCallRef.current = handleLeaveCall;
+  }, [handleLeaveCall]);
 
   const totalParticipants = participants.length + 1; // You + real peers
 
@@ -1545,6 +1613,8 @@ export default function MeetingRoomPage() {
       <VideoGridStage
         activeDrawer={activeDrawer}
         isScreenSharing={isScreenSharing}
+        allowScreenShare={roomInfo?.settings?.allowScreenShare !== false}
+        allowChat={roomInfo?.settings?.allowChat !== false}
         screenStream={screenStream}
         remoteScreenStreams={remoteScreenStreams}
         localVideoRef={localVideoRef}
@@ -1634,6 +1704,9 @@ export default function MeetingRoomPage() {
               participants={participants}
               handleMuteAll={handleMuteAll}
               handleHostControlMedia={handleHostControlMedia}
+              handleRemoveParticipant={handleRemoveParticipant}
+              roomLocked={Boolean(roomInfo?.settings?.isLocked)}
+              handleToggleRoomLock={handleToggleRoomLock}
               myName={myName}
               isMicOn={isMicOn}
               isVideoOn={isVideoOn}

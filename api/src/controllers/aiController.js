@@ -19,6 +19,9 @@ export const askAuraAi = async (req, res, next) => {
     }
 
     const room = await Room.findOne({ roomCode });
+    if (room?.settings?.allowChat === false) {
+      return sendError(res, 'Chat is disabled in this meeting', 403);
+    }
     let recentMessages = [];
     if (room) {
       recentMessages = await Message.find({ room: room._id })
